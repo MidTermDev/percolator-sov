@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import {
   encodeTradeCpi,
@@ -9,6 +9,7 @@ import {
   buildAccountMetas,
   buildIx,
   deriveLpPda,
+  WELL_KNOWN,
 } from "@percolator/core";
 import { sendTx } from "@/lib/tx";
 import { config } from "@/lib/config";
@@ -17,20 +18,26 @@ import { useSlabState } from "@/components/providers/SlabProvider";
 export function useTrade() {
   const { connection } = useConnection();
   const wallet = useWallet();
-  const { config: mktConfig } = useSlabState();
+  const { config: mktConfig, accounts } = useSlabState();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trade = useCallback(
     async (params: { lpIdx: number; userIdx: number; size: bigint }) => {
-      if (!wallet.publicKey || !mktConfig) {
-        throw new Error("Wallet not connected or market not loaded");
-      }
-
       setLoading(true);
       setError(null);
 
       try {
+        if (!wallet.publicKey || !mktConfig) {
+          throw new Error("Wallet not connected or market not loaded");
+        }
+
+        // Find the LP account from slab to get matcher addresses
+        const lpAccount = accounts.find((a) => a.idx === params.lpIdx);
+        if (!lpAccount) {
+          throw new Error(`LP account at index ${params.lpIdx} not found`);
+        }
+
         const programId = new PublicKey(config.programId);
         const slabPk = new PublicKey(config.slabAddress);
 
@@ -42,21 +49,19 @@ export function useTrade() {
 
         const [lpPda] = deriveLpPda(programId, slabPk, params.lpIdx);
 
-        // For trade-cpi, lpOwner is the LP's owner — we pass system program as placeholder
-        // since the matcher validates via CPI
         const keys = buildAccountMetas(ACCOUNTS_TRADE_CPI, [
           wallet.publicKey,
-          PublicKey.default, // lpOwner - resolved by matcher
+          lpAccount.account.owner,        // LP owner from slab data
           slabPk,
-          new PublicKey("SysvarC1ock11111111111111111111111111111111"),
-          mktConfig.indexFeedId, // oracle
-          new PublicKey("11111111111111111111111111111111"), // matcherProg placeholder
-          new PublicKey("11111111111111111111111111111111"), // matcherCtx placeholder
+          WELL_KNOWN.clock,
+          slabPk,                          // oracle = slab for admin oracle / hyperp mode
+          lpAccount.account.matcherProgram,
+          lpAccount.account.matcherContext,
           lpPda,
         ]);
 
         const ix = buildIx({ programId, keys, data: ixData });
-        const sig = await sendTx({ connection, wallet, instruction: ix });
+        const sig = await sendTx({ connection, wallet, instruction: ix, computeUnits: 400_000 });
         return sig;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -66,7 +71,7 @@ export function useTrade() {
         setLoading(false);
       }
     },
-    [connection, wallet, mktConfig]
+    [connection, wallet, mktConfig, accounts]
   );
 
   return { trade, loading, error };

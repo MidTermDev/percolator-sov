@@ -3,10 +3,12 @@
 import { FC } from "react";
 import { useEngineState } from "@/hooks/useEngineState";
 import { useMarketConfig } from "@/hooks/useMarketConfig";
+import { useSlabState } from "@/components/providers/SlabProvider";
 import { formatTokenAmount, formatUsd, formatBps } from "@/lib/format";
 
 export const MarketStats: FC = () => {
   const { engine, params, loading } = useEngineState();
+  const { error } = useSlabState();
   const config = useMarketConfig();
 
   if (loading) {
@@ -21,6 +23,7 @@ export const MarketStats: FC = () => {
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <p className="text-gray-500">Market not loaded</p>
+        {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
       </div>
     );
   }

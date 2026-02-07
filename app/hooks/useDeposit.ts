@@ -24,14 +24,13 @@ export function useDeposit() {
 
   const deposit = useCallback(
     async (params: { userIdx: number; amount: bigint }) => {
-      if (!wallet.publicKey || !mktConfig) {
-        throw new Error("Wallet not connected or market not loaded");
-      }
-
       setLoading(true);
       setError(null);
 
       try {
+        if (!wallet.publicKey || !mktConfig) {
+          throw new Error("Wallet not connected or market not loaded");
+        }
         const programId = new PublicKey(config.programId);
         const slabPk = new PublicKey(config.slabAddress);
 
