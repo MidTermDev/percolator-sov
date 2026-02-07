@@ -2,10 +2,12 @@
 
 **Store of Value** protocol built on the [Percolator](https://github.com/aeyakovenko/percolator) perpetuals engine on Solana.
 
-## PERC Token
+## Mainnet Addresses
 
 ```
-Mint: A16Gd8AfaPnG6rohE6iPFDf6mr9gk519d6aMUJAperc
+PERC Mint:         A16Gd8AfaPnG6rohE6iPFDf6mr9gk519d6aMUJAperc
+Percolator Prog:   GM8zjJ8LTBMv9xEsverh6H6wLyevgMHEJXcEzyY3rY24
+Matcher Prog:      DHP6DtwXP1yJsz8YzfoeigRFPB979gzmumkmCxDLSkUX
 ```
 
 ## How It Works
