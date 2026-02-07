@@ -29,9 +29,9 @@ function assert(cond: boolean, msg: string): void {
   if (!cond) throw new Error(`FAIL: ${msg}`);
 }
 
-function assertBuf(actual: Buffer, expected: number[], msg: string): void {
-  const exp = Buffer.from(expected);
-  if (!actual.equals(exp)) {
+function assertBuf(actual: Uint8Array, expected: number[], msg: string): void {
+  const exp = new Uint8Array(expected);
+  if (actual.length !== exp.length || actual.some((v, i) => v !== exp[i])) {
     throw new Error(
       `FAIL: ${msg}\n  expected: [${[...exp].join(", ")}]\n  actual:   [${[...actual].join(", ")}]`
     );
@@ -152,7 +152,8 @@ console.log("Testing encode functions...\n");
   const pk = new PublicKey("11111111111111111111111111111111");
   const buf = encPubkey(pk);
   assert(buf.length === 32, "encPubkey length");
-  assert(buf.equals(Buffer.from(pk.toBytes())), "encPubkey value");
+  const pkBytes = pk.toBytes();
+  assert(buf.length === pkBytes.length && buf.every((v, i) => v === pkBytes[i]), "encPubkey value");
   console.log("✓ encPubkey");
 }
 
@@ -293,8 +294,10 @@ console.log("\nTesting instruction encoders...\n");
   const data = encodeUpdateAdmin({ newAdmin });
   assert(data.length === 33, "UpdateAdmin length");
   assert(data[0] === IX_TAG.UpdateAdmin, "UpdateAdmin tag byte");
+  const adminBytes = newAdmin.toBytes();
+  const dataPk = data.subarray(1, 33);
   assert(
-    data.subarray(1, 33).equals(Buffer.from(newAdmin.toBytes())),
+    dataPk.length === adminBytes.length && dataPk.every((v, i) => v === adminBytes[i]),
     "UpdateAdmin pubkey"
   );
   console.log("✓ encodeUpdateAdmin");

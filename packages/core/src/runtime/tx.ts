@@ -14,7 +14,7 @@ import { parseErrorFromLogs } from "../abi/errors.js";
 export interface BuildIxParams {
   programId: PublicKey;
   keys: AccountMeta[];
-  data: Buffer;
+  data: Uint8Array | Buffer;
 }
 
 /**
@@ -24,7 +24,9 @@ export function buildIx(params: BuildIxParams): TransactionInstruction {
   return new TransactionInstruction({
     programId: params.programId,
     keys: params.keys,
-    data: params.data,
+    // TransactionInstruction types expect Buffer, but Uint8Array works at runtime.
+    // Cast to avoid Buffer polyfill issues in the browser.
+    data: params.data as Buffer,
   });
 }
 

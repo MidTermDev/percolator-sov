@@ -8,6 +8,7 @@ import {
   encU128,
   encI128,
   encPubkey,
+  concatBytes,
 } from "./encode.js";
 
 /**
@@ -71,22 +72,26 @@ export interface InitMarketArgs {
 }
 
 /**
- * Encode a Pyth feed ID (hex string) to 32-byte buffer.
+ * Encode a Pyth feed ID (hex string) to 32-byte Uint8Array.
  */
-function encodeFeedId(feedId: string): Buffer {
+function encodeFeedId(feedId: string): Uint8Array {
   // Remove 0x prefix if present
   const hex = feedId.startsWith("0x") ? feedId.slice(2) : feedId;
   if (hex.length !== 64) {
     throw new Error(`Invalid feed ID length: expected 64 hex chars, got ${hex.length}`);
   }
-  return Buffer.from(hex, "hex");
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 64; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
 }
 
-export function encodeInitMarket(args: InitMarketArgs): Buffer {
+export function encodeInitMarket(args: InitMarketArgs): Uint8Array {
   // Layout: tag(1) + admin(32) + mint(32) + index_feed_id(32) + max_staleness_secs(8) +
   //         conf_filter_bps(2) + invert(1) + unit_scale(4) + initial_mark_price_e6(8) + RiskParams(...)
   // Note: _reserved field is only in MarketConfig on-chain, not in instruction data
-  return Buffer.concat([
+  return concatBytes(
     encU8(IX_TAG.InitMarket),
     encPubkey(args.admin),
     encPubkey(args.collateralMint),
@@ -109,7 +114,7 @@ export function encodeInitMarket(args: InitMarketArgs): Buffer {
     encU128(args.liquidationFeeCap),
     encU64(args.liquidationBufferBps),
     encU128(args.minLiquidationAbs),
-  ]);
+  );
 }
 
 /**
@@ -119,8 +124,8 @@ export interface InitUserArgs {
   feePayment: bigint | string;
 }
 
-export function encodeInitUser(args: InitUserArgs): Buffer {
-  return Buffer.concat([encU8(IX_TAG.InitUser), encU64(args.feePayment)]);
+export function encodeInitUser(args: InitUserArgs): Uint8Array {
+  return concatBytes(encU8(IX_TAG.InitUser), encU64(args.feePayment));
 }
 
 /**
@@ -132,13 +137,13 @@ export interface InitLPArgs {
   feePayment: bigint | string;
 }
 
-export function encodeInitLP(args: InitLPArgs): Buffer {
-  return Buffer.concat([
+export function encodeInitLP(args: InitLPArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.InitLP),
     encPubkey(args.matcherProgram),
     encPubkey(args.matcherContext),
     encU64(args.feePayment),
-  ]);
+  );
 }
 
 /**
@@ -149,12 +154,12 @@ export interface DepositCollateralArgs {
   amount: bigint | string;
 }
 
-export function encodeDepositCollateral(args: DepositCollateralArgs): Buffer {
-  return Buffer.concat([
+export function encodeDepositCollateral(args: DepositCollateralArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.DepositCollateral),
     encU16(args.userIdx),
     encU64(args.amount),
-  ]);
+  );
 }
 
 /**
@@ -165,12 +170,12 @@ export interface WithdrawCollateralArgs {
   amount: bigint | string;
 }
 
-export function encodeWithdrawCollateral(args: WithdrawCollateralArgs): Buffer {
-  return Buffer.concat([
+export function encodeWithdrawCollateral(args: WithdrawCollateralArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.WithdrawCollateral),
     encU16(args.userIdx),
     encU64(args.amount),
-  ]);
+  );
 }
 
 /**
@@ -182,12 +187,12 @@ export interface KeeperCrankArgs {
   allowPanic: boolean;
 }
 
-export function encodeKeeperCrank(args: KeeperCrankArgs): Buffer {
-  return Buffer.concat([
+export function encodeKeeperCrank(args: KeeperCrankArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.KeeperCrank),
     encU16(args.callerIdx),
     encU8(args.allowPanic ? 1 : 0),
-  ]);
+  );
 }
 
 /**
@@ -199,13 +204,13 @@ export interface TradeNoCpiArgs {
   size: bigint | string;
 }
 
-export function encodeTradeNoCpi(args: TradeNoCpiArgs): Buffer {
-  return Buffer.concat([
+export function encodeTradeNoCpi(args: TradeNoCpiArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.TradeNoCpi),
     encU16(args.lpIdx),
     encU16(args.userIdx),
     encI128(args.size),
-  ]);
+  );
 }
 
 /**
@@ -215,11 +220,11 @@ export interface LiquidateAtOracleArgs {
   targetIdx: number;
 }
 
-export function encodeLiquidateAtOracle(args: LiquidateAtOracleArgs): Buffer {
-  return Buffer.concat([
+export function encodeLiquidateAtOracle(args: LiquidateAtOracleArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.LiquidateAtOracle),
     encU16(args.targetIdx),
-  ]);
+  );
 }
 
 /**
@@ -229,8 +234,8 @@ export interface CloseAccountArgs {
   userIdx: number;
 }
 
-export function encodeCloseAccount(args: CloseAccountArgs): Buffer {
-  return Buffer.concat([encU8(IX_TAG.CloseAccount), encU16(args.userIdx)]);
+export function encodeCloseAccount(args: CloseAccountArgs): Uint8Array {
+  return concatBytes(encU8(IX_TAG.CloseAccount), encU16(args.userIdx));
 }
 
 /**
@@ -240,8 +245,8 @@ export interface TopUpInsuranceArgs {
   amount: bigint | string;
 }
 
-export function encodeTopUpInsurance(args: TopUpInsuranceArgs): Buffer {
-  return Buffer.concat([encU8(IX_TAG.TopUpInsurance), encU64(args.amount)]);
+export function encodeTopUpInsurance(args: TopUpInsuranceArgs): Uint8Array {
+  return concatBytes(encU8(IX_TAG.TopUpInsurance), encU64(args.amount));
 }
 
 /**
@@ -253,13 +258,13 @@ export interface TradeCpiArgs {
   size: bigint | string;
 }
 
-export function encodeTradeCpi(args: TradeCpiArgs): Buffer {
-  return Buffer.concat([
+export function encodeTradeCpi(args: TradeCpiArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.TradeCpi),
     encU16(args.lpIdx),
     encU16(args.userIdx),
     encI128(args.size),
-  ]);
+  );
 }
 
 /**
@@ -269,11 +274,11 @@ export interface SetRiskThresholdArgs {
   newThreshold: bigint | string;
 }
 
-export function encodeSetRiskThreshold(args: SetRiskThresholdArgs): Buffer {
-  return Buffer.concat([
+export function encodeSetRiskThreshold(args: SetRiskThresholdArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.SetRiskThreshold),
     encU128(args.newThreshold),
-  ]);
+  );
 }
 
 /**
@@ -283,14 +288,14 @@ export interface UpdateAdminArgs {
   newAdmin: PublicKey | string;
 }
 
-export function encodeUpdateAdmin(args: UpdateAdminArgs): Buffer {
-  return Buffer.concat([encU8(IX_TAG.UpdateAdmin), encPubkey(args.newAdmin)]);
+export function encodeUpdateAdmin(args: UpdateAdminArgs): Uint8Array {
+  return concatBytes(encU8(IX_TAG.UpdateAdmin), encPubkey(args.newAdmin));
 }
 
 /**
  * CloseSlab instruction data (1 byte)
  */
-export function encodeCloseSlab(): Buffer {
+export function encodeCloseSlab(): Uint8Array {
   return encU8(IX_TAG.CloseSlab);
 }
 
@@ -316,8 +321,8 @@ export interface UpdateConfigArgs {
   threshMinStep: bigint | string;
 }
 
-export function encodeUpdateConfig(args: UpdateConfigArgs): Buffer {
-  return Buffer.concat([
+export function encodeUpdateConfig(args: UpdateConfigArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.UpdateConfig),
     encU64(args.fundingHorizonSlots),
     encU64(args.fundingKBps),
@@ -332,7 +337,7 @@ export function encodeUpdateConfig(args: UpdateConfigArgs): Buffer {
     encU128(args.threshMin),
     encU128(args.threshMax),
     encU128(args.threshMinStep),
-  ]);
+  );
 }
 
 /**
@@ -342,11 +347,11 @@ export interface SetMaintenanceFeeArgs {
   newFee: bigint | string;
 }
 
-export function encodeSetMaintenanceFee(args: SetMaintenanceFeeArgs): Buffer {
-  return Buffer.concat([
+export function encodeSetMaintenanceFee(args: SetMaintenanceFeeArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.SetMaintenanceFee),
     encU128(args.newFee),
-  ]);
+  );
 }
 
 /**
@@ -357,11 +362,11 @@ export interface SetOracleAuthorityArgs {
   newAuthority: PublicKey | string;
 }
 
-export function encodeSetOracleAuthority(args: SetOracleAuthorityArgs): Buffer {
-  return Buffer.concat([
+export function encodeSetOracleAuthority(args: SetOracleAuthorityArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.SetOracleAuthority),
     encPubkey(args.newAuthority),
-  ]);
+  );
 }
 
 /**
@@ -374,12 +379,12 @@ export interface PushOraclePriceArgs {
   timestamp: bigint | string;
 }
 
-export function encodePushOraclePrice(args: PushOraclePriceArgs): Buffer {
-  return Buffer.concat([
+export function encodePushOraclePrice(args: PushOraclePriceArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.PushOraclePrice),
     encU64(args.priceE6),
     encI64(args.timestamp),
-  ]);
+  );
 }
 
 /**
@@ -391,11 +396,11 @@ export interface SetOraclePriceCapArgs {
   maxChangeE2bps: bigint | string;
 }
 
-export function encodeSetOraclePriceCap(args: SetOraclePriceCapArgs): Buffer {
-  return Buffer.concat([
+export function encodeSetOraclePriceCap(args: SetOraclePriceCapArgs): Uint8Array {
+  return concatBytes(
     encU8(IX_TAG.SetOraclePriceCap),
     encU64(args.maxChangeE2bps),
-  ]);
+  );
 }
 
 /**
@@ -403,7 +408,7 @@ export function encodeSetOraclePriceCap(args: SetOraclePriceCapArgs): Buffer {
  * Resolves a binary/premarket - sets RESOLVED flag, positions force-closed via crank.
  * Requires admin oracle price (authority_price_e6) to be set first.
  */
-export function encodeResolveMarket(): Buffer {
+export function encodeResolveMarket(): Uint8Array {
   return encU8(IX_TAG.ResolveMarket);
 }
 
@@ -411,6 +416,6 @@ export function encodeResolveMarket(): Buffer {
  * WithdrawInsurance instruction data (1 byte)
  * Withdraw insurance fund to admin (requires RESOLVED and all positions closed).
  */
-export function encodeWithdrawInsurance(): Buffer {
+export function encodeWithdrawInsurance(): Uint8Array {
   return encU8(IX_TAG.WithdrawInsurance);
 }

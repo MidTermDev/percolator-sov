@@ -1,5 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 
+const textEncoder = new TextEncoder();
+
 /**
  * Derive vault authority PDA.
  * Seeds: ["vault", slab_key]
@@ -9,7 +11,7 @@ export function deriveVaultAuthority(
   slab: PublicKey
 ): [PublicKey, number] {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("vault"), slab.toBuffer()],
+    [textEncoder.encode("vault"), slab.toBytes()],
     programId
   );
 }
@@ -23,10 +25,10 @@ export function deriveLpPda(
   slab: PublicKey,
   lpIdx: number
 ): [PublicKey, number] {
-  const idxBuf = Buffer.alloc(2);
-  idxBuf.writeUInt16LE(lpIdx, 0);
+  const idxBuf = new Uint8Array(2);
+  new DataView(idxBuf.buffer).setUint16(0, lpIdx, true);
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("lp"), slab.toBuffer(), idxBuf],
+    [textEncoder.encode("lp"), slab.toBytes(), idxBuf],
     programId
   );
 }
