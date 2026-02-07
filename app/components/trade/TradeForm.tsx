@@ -21,6 +21,10 @@ function parsePercToNative(input: string): bigint {
   return BigInt(whole) * 1_000_000n + BigInt(frac);
 }
 
+function abs(n: bigint): bigint {
+  return n < 0n ? -n : n;
+}
+
 export const TradeForm: FC = () => {
   const { connected } = useWallet();
   const userAccount = useUserAccount();
@@ -39,9 +43,8 @@ export const TradeForm: FC = () => {
     return lp?.idx ?? 0;
   }, [accounts]);
 
-  const maxLeverage = params
-    ? Number(10000n / params.initialMarginBps)
-    : 10;
+  const initialMarginBps = params?.initialMarginBps ?? 1000n;
+  const maxLeverage = Number(10000n / initialMarginBps);
 
   // Filter leverage options to those <= max
   const availableLeverage = LEVERAGE_OPTIONS.filter((l) => l <= maxLeverage);
@@ -49,11 +52,22 @@ export const TradeForm: FC = () => {
     availableLeverage.push(maxLeverage);
   }
 
-  const balance = userAccount ? userAccount.account.capital : 0n;
+  const capital = userAccount ? userAccount.account.capital : 0n;
+  const existingPosition = userAccount ? userAccount.account.positionSize : 0n;
+  const hasPosition = existingPosition !== 0n;
+
+  // Margin already used by existing position: |positionSize| * initialMarginBps / 10000
+  const marginUsed = hasPosition
+    ? (abs(existingPosition) * initialMarginBps) / 10000n
+    : 0n;
+  const availableMargin = capital > marginUsed ? capital - marginUsed : 0n;
 
   // Compute position size from margin input
   const marginNative = marginInput ? parsePercToNative(marginInput) : 0n;
   const positionSize = marginNative * BigInt(leverage);
+
+  // Validate: margin input can't exceed available margin
+  const exceedsMargin = marginNative > 0n && marginNative > availableMargin;
 
   if (!connected) {
     return (
@@ -74,7 +88,7 @@ export const TradeForm: FC = () => {
   }
 
   async function handleTrade() {
-    if (!marginInput || !userAccount || positionSize <= 0n) return;
+    if (!marginInput || !userAccount || positionSize <= 0n || exceedsMargin) return;
 
     try {
       const size = direction === "short" ? -positionSize : positionSize;
@@ -95,6 +109,15 @@ export const TradeForm: FC = () => {
       <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
         Trade
       </h3>
+
+      {/* Existing position warning */}
+      {hasPosition && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          You have an open {existingPosition > 0n ? "LONG" : "SHORT"} position
+          of {formatPerc(abs(existingPosition))} PERC.
+          New trades will increase your exposure.
+        </div>
+      )}
 
       {/* Direction toggle */}
       <div className="mb-4 flex gap-2">
@@ -126,11 +149,11 @@ export const TradeForm: FC = () => {
           <label className="text-xs text-gray-500">Margin (PERC)</label>
           <button
             onClick={() => {
-              if (balance > 0n) setMarginInput((balance / 1_000_000n).toString());
+              if (availableMargin > 0n) setMarginInput((availableMargin / 1_000_000n).toString());
             }}
             className="text-xs text-blue-600 hover:text-blue-700"
           >
-            Balance: {formatPerc(balance)}
+            Available: {formatPerc(availableMargin)}
           </button>
         </div>
         <input
@@ -138,8 +161,17 @@ export const TradeForm: FC = () => {
           value={marginInput}
           onChange={(e) => setMarginInput(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="100000"
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className={`w-full rounded-lg border px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 ${
+            exceedsMargin
+              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500"
+              : "border-gray-300 bg-gray-50 focus:border-blue-500 focus:ring-blue-500"
+          }`}
         />
+        {exceedsMargin && (
+          <p className="mt-1 text-xs text-red-600">
+            Exceeds available margin ({formatPerc(availableMargin)} PERC)
+          </p>
+        )}
       </div>
 
       {/* Leverage selector */}
@@ -163,7 +195,7 @@ export const TradeForm: FC = () => {
       </div>
 
       {/* Position summary */}
-      {marginInput && marginNative > 0n && (
+      {marginInput && marginNative > 0n && !exceedsMargin && (
         <div className="mb-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
           <div className="flex justify-between">
             <span>Position Size</span>
@@ -187,7 +219,7 @@ export const TradeForm: FC = () => {
       {/* Submit */}
       <button
         onClick={handleTrade}
-        disabled={loading || !marginInput || positionSize <= 0n}
+        disabled={loading || !marginInput || positionSize <= 0n || exceedsMargin}
         className={`w-full rounded-lg py-3 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           direction === "long"
             ? "bg-emerald-600 hover:bg-emerald-700"
