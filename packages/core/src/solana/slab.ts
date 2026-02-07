@@ -1,5 +1,28 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 
+// =============================================================================
+// Browser-compatible read helpers using DataView
+// (the npm 'buffer' polyfill lacks readBigUInt64LE / readBigInt64LE)
+// =============================================================================
+function dv(data: Uint8Array): DataView {
+  return new DataView(data.buffer, data.byteOffset, data.byteLength);
+}
+function readU8(data: Uint8Array, off: number): number {
+  return data[off];
+}
+function readU16LE(data: Uint8Array, off: number): number {
+  return dv(data).getUint16(off, true);
+}
+function readU32LE(data: Uint8Array, off: number): number {
+  return dv(data).getUint32(off, true);
+}
+function readU64LE(data: Uint8Array, off: number): bigint {
+  return dv(data).getBigUint64(off, true);
+}
+function readI64LE(data: Uint8Array, off: number): bigint {
+  return dv(data).getBigInt64(off, true);
+}
+
 // Constants from Rust (updated for funding/threshold params 2026-01)
 const MAGIC: bigint = 0x504552434f4c4154n; // "PERCOLAT"
 const HEADER_LEN = 72;    // SlabHeader: magic(8) + version(4) + bump(1) + _padding(3) + admin(32) + _reserved(24)
@@ -76,35 +99,35 @@ export interface MarketConfig {
 export async function fetchSlab(
   connection: Connection,
   slabPubkey: PublicKey
-): Promise<Buffer> {
+): Promise<Uint8Array> {
   const info = await connection.getAccountInfo(slabPubkey);
   if (!info) {
     throw new Error(`Slab account not found: ${slabPubkey.toBase58()}`);
   }
-  return Buffer.from(info.data);
+  return new Uint8Array(info.data);
 }
 
 /**
  * Parse slab header (first 64 bytes).
  */
-export function parseHeader(data: Buffer): SlabHeader {
+export function parseHeader(data: Uint8Array): SlabHeader {
   if (data.length < HEADER_LEN) {
     throw new Error(`Slab data too short for header: ${data.length} < ${HEADER_LEN}`);
   }
 
-  const magic = data.readBigUInt64LE(0);
+  const magic = readU64LE(data, 0);
   if (magic !== MAGIC) {
     throw new Error(`Invalid slab magic: expected ${MAGIC.toString(16)}, got ${magic.toString(16)}`);
   }
 
-  const version = data.readUInt32LE(8);
-  const bump = data.readUInt8(12);
-  const flags = data.readUInt8(13);  // _padding[0] contains flags
+  const version = readU32LE(data, 8);
+  const bump = readU8(data, 12);
+  const flags = readU8(data, 13);  // _padding[0] contains flags
   const admin = new PublicKey(data.subarray(16, 48));
 
   // Reserved field: nonce at [0..8], lastThrUpdateSlot at [8..16]
-  const nonce = data.readBigUInt64LE(RESERVED_OFF);
-  const lastThrUpdateSlot = data.readBigUInt64LE(RESERVED_OFF + 8);
+  const nonce = readU64LE(data, RESERVED_OFF);
+  const lastThrUpdateSlot = readU64LE(data, RESERVED_OFF + 8);
 
   return {
     magic,
@@ -123,7 +146,7 @@ export function parseHeader(data: Buffer): SlabHeader {
  * Layout: collateral_mint(32) + vault_pubkey(32) + index_feed_id(32)
  *         + max_staleness_secs(8) + conf_filter_bps(2) + vault_authority_bump(1) + invert(1) + unit_scale(4)
  */
-export function parseConfig(data: Buffer): MarketConfig {
+export function parseConfig(data: Uint8Array): MarketConfig {
   const minLen = CONFIG_OFFSET + CONFIG_LEN;
   if (data.length < minLen) {
     throw new Error(`Slab data too short for config: ${data.length} < ${minLen}`);
@@ -141,51 +164,51 @@ export function parseConfig(data: Buffer): MarketConfig {
   const indexFeedId = new PublicKey(data.subarray(off, off + 32));
   off += 32;
 
-  const maxStalenessSlots = data.readBigUInt64LE(off);
+  const maxStalenessSlots = readU64LE(data, off);
   off += 8;
 
-  const confFilterBps = data.readUInt16LE(off);
+  const confFilterBps = readU16LE(data, off);
   off += 2;
 
-  const vaultAuthorityBump = data.readUInt8(off);
+  const vaultAuthorityBump = readU8(data, off);
   off += 1;
 
-  const invert = data.readUInt8(off);
+  const invert = readU8(data, off);
   off += 1;
 
-  const unitScale = data.readUInt32LE(off);
+  const unitScale = readU32LE(data, off);
   off += 4;
 
   // Funding rate parameters
-  const fundingHorizonSlots = data.readBigUInt64LE(off);
+  const fundingHorizonSlots = readU64LE(data, off);
   off += 8;
 
-  const fundingKBps = data.readBigUInt64LE(off);
+  const fundingKBps = readU64LE(data, off);
   off += 8;
 
   const fundingInvScaleNotionalE6 = readI128LE(data, off);
   off += 16;
 
-  const fundingMaxPremiumBps = data.readBigUInt64LE(off);
+  const fundingMaxPremiumBps = readU64LE(data, off);
   off += 8;
 
-  const fundingMaxBpsPerSlot = data.readBigUInt64LE(off);
+  const fundingMaxBpsPerSlot = readU64LE(data, off);
   off += 8;
 
   // Threshold parameters
   const threshFloor = readU128LE(data, off);
   off += 16;
 
-  const threshRiskBps = data.readBigUInt64LE(off);
+  const threshRiskBps = readU64LE(data, off);
   off += 8;
 
-  const threshUpdateIntervalSlots = data.readBigUInt64LE(off);
+  const threshUpdateIntervalSlots = readU64LE(data, off);
   off += 8;
 
-  const threshStepBps = data.readBigUInt64LE(off);
+  const threshStepBps = readU64LE(data, off);
   off += 8;
 
-  const threshAlphaBps = data.readBigUInt64LE(off);
+  const threshAlphaBps = readU64LE(data, off);
   off += 8;
 
   const threshMin = readU128LE(data, off);
@@ -201,17 +224,17 @@ export function parseConfig(data: Buffer): MarketConfig {
   const oracleAuthority = new PublicKey(data.subarray(off, off + 32));
   off += 32;
 
-  const authorityPriceE6 = data.readBigUInt64LE(off);
+  const authorityPriceE6 = readU64LE(data, off);
   off += 8;
 
-  const authorityTimestamp = data.readBigInt64LE(off);
+  const authorityTimestamp = readI64LE(data, off);
   off += 8;
 
   // Oracle price circuit breaker
-  const oraclePriceCapE2bps = data.readBigUInt64LE(off);
+  const oraclePriceCapE2bps = readU64LE(data, off);
   off += 8;
 
-  const lastEffectivePriceE6 = data.readBigUInt64LE(off);
+  const lastEffectivePriceE6 = readU64LE(data, off);
 
   return {
     collateralMint,
@@ -246,21 +269,21 @@ export function parseConfig(data: Buffer): MarketConfig {
 /**
  * Read nonce from slab header reserved field.
  */
-export function readNonce(data: Buffer): bigint {
+export function readNonce(data: Uint8Array): bigint {
   if (data.length < RESERVED_OFF + 8) {
     throw new Error("Slab data too short for nonce");
   }
-  return data.readBigUInt64LE(RESERVED_OFF);
+  return readU64LE(data, RESERVED_OFF);
 }
 
 /**
  * Read last threshold update slot from slab header reserved field.
  */
-export function readLastThrUpdateSlot(data: Buffer): bigint {
+export function readLastThrUpdateSlot(data: Uint8Array): bigint {
   if (data.length < RESERVED_OFF + 16) {
     throw new Error("Slab data too short for lastThrUpdateSlot");
   }
-  return data.readBigUInt64LE(RESERVED_OFF + 8);
+  return readU64LE(data, RESERVED_OFF + 8);
 }
 
 // =============================================================================
@@ -444,9 +467,9 @@ export interface Account {
 // Helper: read signed i128 from buffer
 // Match Rust's I128 wrapper: read both halves as unsigned, then interpret as signed
 // =============================================================================
-function readI128LE(buf: Buffer, offset: number): bigint {
-  const lo = buf.readBigUInt64LE(offset);
-  const hi = buf.readBigUInt64LE(offset + 8);
+function readI128LE(buf: Uint8Array, offset: number): bigint {
+  const lo = readU64LE(buf, offset);
+  const hi = readU64LE(buf, offset + 8);
   const unsigned = (hi << 64n) | lo;
   // If high bit is set, convert to negative (two's complement)
   const SIGN_BIT = 1n << 127n;
@@ -456,9 +479,9 @@ function readI128LE(buf: Buffer, offset: number): bigint {
   return unsigned;
 }
 
-function readU128LE(buf: Buffer, offset: number): bigint {
-  const lo = buf.readBigUInt64LE(offset);
-  const hi = buf.readBigUInt64LE(offset + 8);
+function readU128LE(buf: Uint8Array, offset: number): bigint {
+  const lo = readU64LE(buf, offset);
+  const hi = readU64LE(buf, offset + 8);
   return (hi << 64n) | lo;
 }
 
@@ -470,25 +493,25 @@ function readU128LE(buf: Buffer, offset: number): bigint {
  * Parse RiskParams from engine data.
  * Note: invert/unitScale are in MarketConfig, not RiskParams.
  */
-export function parseParams(data: Buffer): RiskParams {
+export function parseParams(data: Uint8Array): RiskParams {
   const base = ENGINE_OFF + ENGINE_PARAMS_OFF;
   if (data.length < base + 160) {  // RiskParams is 160 bytes with repr(C) padding
     throw new Error("Slab data too short for RiskParams");
   }
 
   return {
-    warmupPeriodSlots: data.readBigUInt64LE(base + PARAMS_WARMUP_PERIOD_OFF),
-    maintenanceMarginBps: data.readBigUInt64LE(base + PARAMS_MAINTENANCE_MARGIN_OFF),
-    initialMarginBps: data.readBigUInt64LE(base + PARAMS_INITIAL_MARGIN_OFF),
-    tradingFeeBps: data.readBigUInt64LE(base + PARAMS_TRADING_FEE_OFF),
-    maxAccounts: data.readBigUInt64LE(base + PARAMS_MAX_ACCOUNTS_OFF),
+    warmupPeriodSlots: readU64LE(data, base + PARAMS_WARMUP_PERIOD_OFF),
+    maintenanceMarginBps: readU64LE(data, base + PARAMS_MAINTENANCE_MARGIN_OFF),
+    initialMarginBps: readU64LE(data, base + PARAMS_INITIAL_MARGIN_OFF),
+    tradingFeeBps: readU64LE(data, base + PARAMS_TRADING_FEE_OFF),
+    maxAccounts: readU64LE(data, base + PARAMS_MAX_ACCOUNTS_OFF),
     newAccountFee: readU128LE(data, base + PARAMS_NEW_ACCOUNT_FEE_OFF),
     riskReductionThreshold: readU128LE(data, base + PARAMS_RISK_THRESHOLD_OFF),
     maintenanceFeePerSlot: readU128LE(data, base + PARAMS_MAINTENANCE_FEE_OFF),
-    maxCrankStalenessSlots: data.readBigUInt64LE(base + PARAMS_MAX_CRANK_STALENESS_OFF),
-    liquidationFeeBps: data.readBigUInt64LE(base + PARAMS_LIQUIDATION_FEE_BPS_OFF),
+    maxCrankStalenessSlots: readU64LE(data, base + PARAMS_MAX_CRANK_STALENESS_OFF),
+    liquidationFeeBps: readU64LE(data, base + PARAMS_LIQUIDATION_FEE_BPS_OFF),
     liquidationFeeCap: readU128LE(data, base + PARAMS_LIQUIDATION_FEE_CAP_OFF),
-    liquidationBufferBps: data.readBigUInt64LE(base + PARAMS_LIQUIDATION_BUFFER_OFF),
+    liquidationBufferBps: readU64LE(data, base + PARAMS_LIQUIDATION_BUFFER_OFF),
     minLiquidationAbs: readU128LE(data, base + PARAMS_MIN_LIQUIDATION_OFF),
   };
 }
@@ -496,7 +519,7 @@ export function parseParams(data: Buffer): RiskParams {
 /**
  * Parse RiskEngine state (excluding accounts array).
  */
-export function parseEngine(data: Buffer): EngineState {
+export function parseEngine(data: Uint8Array): EngineState {
   const base = ENGINE_OFF;
   if (data.length < base + ENGINE_ACCOUNTS_OFF) {
     throw new Error("Slab data too short for RiskEngine");
@@ -508,37 +531,37 @@ export function parseEngine(data: Buffer): EngineState {
       balance: readU128LE(data, base + ENGINE_INSURANCE_OFF),
       feeRevenue: readU128LE(data, base + ENGINE_INSURANCE_OFF + 16),
     },
-    currentSlot: data.readBigUInt64LE(base + ENGINE_CURRENT_SLOT_OFF),
+    currentSlot: readU64LE(data, base + ENGINE_CURRENT_SLOT_OFF),
     fundingIndexQpbE6: readI128LE(data, base + ENGINE_FUNDING_INDEX_OFF),
-    lastFundingSlot: data.readBigUInt64LE(base + ENGINE_LAST_FUNDING_SLOT_OFF),
-    fundingRateBpsPerSlotLast: data.readBigInt64LE(base + ENGINE_FUNDING_RATE_BPS_OFF),
-    lastCrankSlot: data.readBigUInt64LE(base + ENGINE_LAST_CRANK_SLOT_OFF),
-    maxCrankStalenessSlots: data.readBigUInt64LE(base + ENGINE_MAX_CRANK_STALENESS_OFF),
+    lastFundingSlot: readU64LE(data, base + ENGINE_LAST_FUNDING_SLOT_OFF),
+    fundingRateBpsPerSlotLast: readI64LE(data, base + ENGINE_FUNDING_RATE_BPS_OFF),
+    lastCrankSlot: readU64LE(data, base + ENGINE_LAST_CRANK_SLOT_OFF),
+    maxCrankStalenessSlots: readU64LE(data, base + ENGINE_MAX_CRANK_STALENESS_OFF),
     totalOpenInterest: readU128LE(data, base + ENGINE_TOTAL_OI_OFF),
     cTot: readU128LE(data, base + ENGINE_C_TOT_OFF),
     pnlPosTot: readU128LE(data, base + ENGINE_PNL_POS_TOT_OFF),
-    liqCursor: data.readUInt16LE(base + ENGINE_LIQ_CURSOR_OFF),
-    gcCursor: data.readUInt16LE(base + ENGINE_GC_CURSOR_OFF),
-    lastSweepStartSlot: data.readBigUInt64LE(base + ENGINE_LAST_SWEEP_START_OFF),
-    lastSweepCompleteSlot: data.readBigUInt64LE(base + ENGINE_LAST_SWEEP_COMPLETE_OFF),
-    crankCursor: data.readUInt16LE(base + ENGINE_CRANK_CURSOR_OFF),
-    sweepStartIdx: data.readUInt16LE(base + ENGINE_SWEEP_START_IDX_OFF),
-    lifetimeLiquidations: data.readBigUInt64LE(base + ENGINE_LIFETIME_LIQUIDATIONS_OFF),
-    lifetimeForceCloses: data.readBigUInt64LE(base + ENGINE_LIFETIME_FORCE_CLOSES_OFF),
+    liqCursor: readU16LE(data, base + ENGINE_LIQ_CURSOR_OFF),
+    gcCursor: readU16LE(data, base + ENGINE_GC_CURSOR_OFF),
+    lastSweepStartSlot: readU64LE(data, base + ENGINE_LAST_SWEEP_START_OFF),
+    lastSweepCompleteSlot: readU64LE(data, base + ENGINE_LAST_SWEEP_COMPLETE_OFF),
+    crankCursor: readU16LE(data, base + ENGINE_CRANK_CURSOR_OFF),
+    sweepStartIdx: readU16LE(data, base + ENGINE_SWEEP_START_IDX_OFF),
+    lifetimeLiquidations: readU64LE(data, base + ENGINE_LIFETIME_LIQUIDATIONS_OFF),
+    lifetimeForceCloses: readU64LE(data, base + ENGINE_LIFETIME_FORCE_CLOSES_OFF),
     // LP Aggregates for funding rate calculation
     netLpPos: readI128LE(data, base + ENGINE_NET_LP_POS_OFF),
     lpSumAbs: readU128LE(data, base + ENGINE_LP_SUM_ABS_OFF),
     lpMaxAbs: readU128LE(data, base + ENGINE_LP_MAX_ABS_OFF),
     lpMaxAbsSweep: readU128LE(data, base + ENGINE_LP_MAX_ABS_SWEEP_OFF),
-    numUsedAccounts: data.readUInt16LE(base + ENGINE_NUM_USED_OFF),
-    nextAccountId: data.readBigUInt64LE(base + ENGINE_NEXT_ACCOUNT_ID_OFF),
+    numUsedAccounts: readU16LE(data, base + ENGINE_NUM_USED_OFF),
+    nextAccountId: readU64LE(data, base + ENGINE_NEXT_ACCOUNT_ID_OFF),
   };
 }
 
 /**
  * Read bitmap to get list of used account indices.
  */
-export function parseUsedIndices(data: Buffer): number[] {
+export function parseUsedIndices(data: Uint8Array): number[] {
   const base = ENGINE_OFF + ENGINE_BITMAP_OFF;
   if (data.length < base + BITMAP_WORDS * 8) {
     throw new Error("Slab data too short for bitmap");
@@ -546,7 +569,7 @@ export function parseUsedIndices(data: Buffer): number[] {
 
   const used: number[] = [];
   for (let word = 0; word < BITMAP_WORDS; word++) {
-    const bits = data.readBigUInt64LE(base + word * 8);
+    const bits = readU64LE(data, base + word * 8);
     if (bits === 0n) continue;
     for (let bit = 0; bit < 64; bit++) {
       if ((bits >> BigInt(bit)) & 1n) {
@@ -560,12 +583,12 @@ export function parseUsedIndices(data: Buffer): number[] {
 /**
  * Check if a specific account index is used.
  */
-export function isAccountUsed(data: Buffer, idx: number): boolean {
+export function isAccountUsed(data: Uint8Array, idx: number): boolean {
   if (idx < 0 || idx >= MAX_ACCOUNTS) return false;
   const base = ENGINE_OFF + ENGINE_BITMAP_OFF;
   const word = Math.floor(idx / 64);
   const bit = idx % 64;
-  const bits = data.readBigUInt64LE(base + word * 8);
+  const bits = readU64LE(data, base + word * 8);
   return ((bits >> BigInt(bit)) & 1n) !== 0n;
 }
 
@@ -581,7 +604,7 @@ export function maxAccountIndex(dataLen: number): number {
 /**
  * Parse a single account by index.
  */
-export function parseAccount(data: Buffer, idx: number): Account {
+export function parseAccount(data: Uint8Array, idx: number): Account {
   const maxIdx = maxAccountIndex(data.length);
   if (idx < 0 || idx >= maxIdx) {
     throw new Error(`Account index out of range: ${idx} (max: ${maxIdx - 1})`);
@@ -593,25 +616,25 @@ export function parseAccount(data: Buffer, idx: number): Account {
   }
 
   // Read the kind field directly from offset 24 (u8 with 7 bytes padding)
-  const kindByte = data.readUInt8(base + ACCT_KIND_OFF);
+  const kindByte = readU8(data, base + ACCT_KIND_OFF);
   const kind = kindByte === 1 ? AccountKind.LP : AccountKind.User;
 
   return {
     kind,
-    accountId: data.readBigUInt64LE(base + ACCT_ACCOUNT_ID_OFF),
+    accountId: readU64LE(data, base + ACCT_ACCOUNT_ID_OFF),
     capital: readU128LE(data, base + ACCT_CAPITAL_OFF),
     pnl: readI128LE(data, base + ACCT_PNL_OFF),
-    reservedPnl: data.readBigUInt64LE(base + ACCT_RESERVED_PNL_OFF),  // u64
-    warmupStartedAtSlot: data.readBigUInt64LE(base + ACCT_WARMUP_STARTED_OFF),
+    reservedPnl: readU64LE(data, base + ACCT_RESERVED_PNL_OFF),
+    warmupStartedAtSlot: readU64LE(data, base + ACCT_WARMUP_STARTED_OFF),
     warmupSlopePerStep: readU128LE(data, base + ACCT_WARMUP_SLOPE_OFF),
     positionSize: readI128LE(data, base + ACCT_POSITION_SIZE_OFF),
-    entryPrice: data.readBigUInt64LE(base + ACCT_ENTRY_PRICE_OFF),
+    entryPrice: readU64LE(data, base + ACCT_ENTRY_PRICE_OFF),
     fundingIndex: readI128LE(data, base + ACCT_FUNDING_INDEX_OFF),
     matcherProgram: new PublicKey(data.subarray(base + ACCT_MATCHER_PROGRAM_OFF, base + ACCT_MATCHER_PROGRAM_OFF + 32)),
     matcherContext: new PublicKey(data.subarray(base + ACCT_MATCHER_CONTEXT_OFF, base + ACCT_MATCHER_CONTEXT_OFF + 32)),
     owner: new PublicKey(data.subarray(base + ACCT_OWNER_OFF, base + ACCT_OWNER_OFF + 32)),
     feeCredits: readI128LE(data, base + ACCT_FEE_CREDITS_OFF),
-    lastFeeSlot: data.readBigUInt64LE(base + ACCT_LAST_FEE_SLOT_OFF),
+    lastFeeSlot: readU64LE(data, base + ACCT_LAST_FEE_SLOT_OFF),
   };
 }
 
@@ -619,7 +642,7 @@ export function parseAccount(data: Buffer, idx: number): Account {
  * Parse all used accounts.
  * Filters out indices that would be beyond the slab's account storage capacity.
  */
-export function parseAllAccounts(data: Buffer): { idx: number; account: Account }[] {
+export function parseAllAccounts(data: Uint8Array): { idx: number; account: Account }[] {
   const indices = parseUsedIndices(data);
   const maxIdx = maxAccountIndex(data.length);
   const validIndices = indices.filter(idx => idx < maxIdx);

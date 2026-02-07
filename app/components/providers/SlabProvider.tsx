@@ -9,7 +9,7 @@ import {
   useState,
   useRef,
 } from "react";
-import { Connection, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import { useConnection } from "@solana/wallet-adapter-react";
 import {
   parseHeader,
@@ -25,7 +25,7 @@ import {
 } from "@percolator/core";
 
 export interface SlabState {
-  raw: Buffer | null;
+  raw: Uint8Array | null;
   header: SlabHeader | null;
   config: MarketConfig | null;
   engine: EngineState | null;
@@ -66,7 +66,7 @@ export const SlabProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const slabPk = new PublicKey(SLAB_ADDRESS);
 
-    function parseSlab(data: Buffer) {
+    function parseSlab(data: Uint8Array) {
       try {
         const header = parseHeader(data);
         const config = parseConfig(data);
@@ -97,7 +97,7 @@ export const SlabProvider: FC<{ children: ReactNode }> = ({ children }) => {
     try {
       subId = connection.onAccountChange(slabPk, (info) => {
         wsActive.current = true;
-        parseSlab(Buffer.from(info.data));
+        parseSlab(new Uint8Array(info.data));
       });
     } catch {
       // websocket not available
@@ -109,7 +109,7 @@ export const SlabProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (wsActive.current) return;
       try {
         const info = await connection.getAccountInfo(slabPk);
-        if (info) parseSlab(Buffer.from(info.data));
+        if (info) parseSlab(new Uint8Array(info.data));
       } catch {
         // ignore poll errors
       }
