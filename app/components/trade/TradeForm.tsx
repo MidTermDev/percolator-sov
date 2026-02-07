@@ -34,7 +34,7 @@ export const TradeForm: FC = () => {
 
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [marginInput, setMarginInput] = useState("");
-  const [leverage, setLeverage] = useState(2);
+  const [leverage, setLeverage] = useState(1);
   const [lastSig, setLastSig] = useState<string | null>(null);
 
   // Find first LP account to use as counterparty
