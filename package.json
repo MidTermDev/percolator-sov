@@ -10,7 +10,6 @@
     "dev:cli": "pnpm --filter @percolator/cli dev",
     "dev:app": "pnpm --filter @percolator/app dev"
   },
-  "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=20"
   },
