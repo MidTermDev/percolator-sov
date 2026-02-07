@@ -1,0 +1,19 @@
+{
+  "network": "mainnet",
+  "version": 2,
+  "createdAt": "2026-02-07T20:30:00.000Z",
+  "programId": "GM8zjJ8LTBMv9xEsverh6H6wLyevgMHEJXcEzyY3rY24",
+  "matcherProgramId": "DHP6DtwXP1yJsz8YzfoeigRFPB979gzmumkmCxDLSkUX",
+  "slab": "687iGEQWXbhR8wqovYmdgZfLy9nQurrmnxNiaVqJydwc",
+  "mint": "A16Gd8AfaPnG6rohE6iPFDf6mr9gk519d6aMUJAperc",
+  "vault": "EWv9VXLFSfXRoftA94t8UAiAReaef4CvtWk676knvNXB",
+  "vaultPda": "AWuQ1jBduW2BVCuys9RFCN5NyUUdsEAg48U71B4v86pa",
+  "oracleMode": "admin",
+  "inverted": true,
+  "lp": {
+    "index": 0,
+    "pda": "39VVSCxzKtox8n8fZrQamsoqYiR9szAYo5U2f81fugYT"
+  },
+  "admin": "CTNRpc2N1Jhgjk4GfmoQuzHKC5HcxiSTE5Bh471yU6FP",
+  "adminAta": "2i5RwtjRhzsPk3qT8qEn9XJbveQs4Cr53dPpWCf8kAYX"
+}
