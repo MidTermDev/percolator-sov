@@ -56,18 +56,12 @@ export const TradeForm: FC = () => {
   const existingPosition = userAccount ? userAccount.account.positionSize : 0n;
   const hasPosition = existingPosition !== 0n;
 
-  // Margin already used by existing position: |positionSize| * initialMarginBps / 10000
-  const marginUsed = hasPosition
-    ? (abs(existingPosition) * initialMarginBps) / 10000n
-    : 0n;
-  const availableMargin = capital > marginUsed ? capital - marginUsed : 0n;
-
   // Compute position size from margin input
   const marginNative = marginInput ? parsePercToNative(marginInput) : 0n;
   const positionSize = marginNative * BigInt(leverage);
 
-  // Validate: margin input can't exceed available margin
-  const exceedsMargin = marginNative > 0n && marginNative > availableMargin;
+  // Validate: margin can't exceed capital
+  const exceedsMargin = marginNative > 0n && marginNative > capital;
 
   if (!connected) {
     return (
@@ -83,6 +77,25 @@ export const TradeForm: FC = () => {
         <p className="text-gray-400">
           No account found. Go to Dashboard to create one.
         </p>
+      </div>
+    );
+  }
+
+  // Block trading when a position is already open
+  if (hasPosition) {
+    return (
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+          Trade
+        </h3>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-medium">Position open</p>
+          <p className="mt-1 text-xs text-amber-600">
+            You have an open {existingPosition > 0n ? "LONG" : "SHORT"} of{" "}
+            {formatPerc(abs(existingPosition))} PERC.
+            Close your position before opening a new one.
+          </p>
+        </div>
       </div>
     );
   }
@@ -109,15 +122,6 @@ export const TradeForm: FC = () => {
       <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
         Trade
       </h3>
-
-      {/* Existing position warning */}
-      {hasPosition && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-          You have an open {existingPosition > 0n ? "LONG" : "SHORT"} position
-          of {formatPerc(abs(existingPosition))} PERC.
-          New trades will increase your exposure.
-        </div>
-      )}
 
       {/* Direction toggle */}
       <div className="mb-4 flex gap-2">
@@ -149,11 +153,11 @@ export const TradeForm: FC = () => {
           <label className="text-xs text-gray-500">Margin (PERC)</label>
           <button
             onClick={() => {
-              if (availableMargin > 0n) setMarginInput((availableMargin / 1_000_000n).toString());
+              if (capital > 0n) setMarginInput((capital / 1_000_000n).toString());
             }}
             className="text-xs text-blue-600 hover:text-blue-700"
           >
-            Available: {formatPerc(availableMargin)}
+            Balance: {formatPerc(capital)}
           </button>
         </div>
         <input
@@ -169,7 +173,7 @@ export const TradeForm: FC = () => {
         />
         {exceedsMargin && (
           <p className="mt-1 text-xs text-red-600">
-            Exceeds available margin ({formatPerc(availableMargin)} PERC)
+            Exceeds balance ({formatPerc(capital)} PERC)
           </p>
         )}
       </div>
