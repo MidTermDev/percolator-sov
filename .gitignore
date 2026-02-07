@@ -2,3 +2,9 @@ node_modules/
 dist/
 *.log
 .DS_Store
+.env
+.env.*
+!.env.example
+*.keypair.json
+admin-keypair.json
+.next/
