@@ -1,9 +1,7 @@
 export function formatTokenAmount(raw: bigint, decimals: number = 6): string {
   const divisor = BigInt(10 ** decimals);
   const whole = raw / divisor;
-  const frac = raw % divisor;
-  const fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
-  return fracStr ? `${whole}.${fracStr}` : whole.toString();
+  return whole.toLocaleString();
 }
 
 export function formatPriceE6(priceE6: bigint): string {

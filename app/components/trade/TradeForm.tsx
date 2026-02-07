@@ -11,10 +11,7 @@ import { AccountKind } from "@percolator/core";
 const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10];
 
 function formatPerc(native: bigint): string {
-  const whole = native / 1_000_000n;
-  const frac = native % 1_000_000n;
-  if (frac === 0n) return whole.toLocaleString();
-  return `${whole.toLocaleString()}.${frac.toString().padStart(6, "0").replace(/0+$/, "")}`;
+  return (native / 1_000_000n).toLocaleString();
 }
 
 function parsePercToNative(input: string): bigint {
@@ -129,7 +126,7 @@ export const TradeForm: FC = () => {
           <label className="text-xs text-gray-500">Margin (PERC)</label>
           <button
             onClick={() => {
-              if (balance > 0n) setMarginInput(formatPerc(balance));
+              if (balance > 0n) setMarginInput((balance / 1_000_000n).toString());
             }}
             className="text-xs text-blue-600 hover:text-blue-700"
           >
