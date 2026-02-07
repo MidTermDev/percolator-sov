@@ -11,7 +11,7 @@ export const MarketStats: FC = () => {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <p className="text-gray-500">Loading market stats...</p>
       </div>
     );
@@ -19,7 +19,7 @@ export const MarketStats: FC = () => {
 
   if (!engine || !config || !params) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <p className="text-gray-500">Market not loaded</p>
       </div>
     );
@@ -53,7 +53,7 @@ export const MarketStats: FC = () => {
   ];
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
         Market Stats
       </h3>
@@ -61,7 +61,7 @@ export const MarketStats: FC = () => {
         {stats.map((s) => (
           <div key={s.label}>
             <p className="text-xs text-gray-500">{s.label}</p>
-            <p className="text-sm font-medium text-white">{s.value}</p>
+            <p className="text-sm font-medium text-gray-900">{s.value}</p>
           </div>
         ))}
       </div>

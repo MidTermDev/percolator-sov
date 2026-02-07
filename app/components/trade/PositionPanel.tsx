@@ -11,7 +11,7 @@ export const PositionPanel: FC = () => {
 
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
           Position
         </h3>
@@ -31,8 +31,8 @@ export const PositionPanel: FC = () => {
   const pnlColor = account.pnl === 0n
     ? "text-gray-400"
     : pnlPositive
-      ? "text-emerald-400"
-      : "text-red-400";
+      ? "text-emerald-600"
+      : "text-red-600";
 
   // Estimate liquidation price (simplified)
   // liq price = entry * (1 - margin) for longs, entry * (1 + margin) for shorts
@@ -48,7 +48,7 @@ export const PositionPanel: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
         Position
       </h3>
@@ -61,7 +61,7 @@ export const PositionPanel: FC = () => {
             <span className="text-xs text-gray-500">Direction</span>
             <span
               className={`text-sm font-medium ${
-                isLong ? "text-emerald-400" : "text-red-400"
+                isLong ? "text-emerald-600" : "text-red-600"
               }`}
             >
               {isLong ? "LONG" : "SHORT"}
@@ -69,13 +69,13 @@ export const PositionPanel: FC = () => {
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Size</span>
-            <span className="text-sm text-white">
+            <span className="text-sm text-gray-900">
               {formatTokenAmount(absPosition)}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Entry Price</span>
-            <span className="text-sm text-white">
+            <span className="text-sm text-gray-900">
               {formatUsd(account.entryPrice)}
             </span>
           </div>

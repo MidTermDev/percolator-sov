@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Percolator SOV" width="200" />
+</p>
+
 # Percolator SOV
 
 **Store of Value** protocol built on the [Percolator](https://github.com/aeyakovenko/percolator) perpetuals engine on Solana.

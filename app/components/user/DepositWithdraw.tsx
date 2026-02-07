@@ -20,7 +20,7 @@ export const DepositWithdraw: FC = () => {
 
   if (!connected) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 text-center">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
         <p className="text-gray-400">Connect your wallet</p>
       </div>
     );
@@ -29,7 +29,7 @@ export const DepositWithdraw: FC = () => {
   // No account - show init button
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
         <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
           Create Account
         </h3>
@@ -46,12 +46,12 @@ export const DepositWithdraw: FC = () => {
             }
           }}
           disabled={initLoading}
-          className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+          className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
           {initLoading ? "Creating..." : "Create Account"}
         </button>
         {initError && (
-          <p className="mt-2 text-xs text-red-400">{initError}</p>
+          <p className="mt-2 text-xs text-red-600">{initError}</p>
         )}
         {lastSig && (
           <p className="mt-2 text-xs text-gray-500">
@@ -60,7 +60,7 @@ export const DepositWithdraw: FC = () => {
               href={`https://explorer.solana.com/tx/${lastSig}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+              className="text-blue-600 hover:underline"
             >
               {lastSig.slice(0, 16)}...
             </a>
@@ -94,7 +94,7 @@ export const DepositWithdraw: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-6">
+    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
         Deposit / Withdraw
       </h3>
@@ -106,7 +106,7 @@ export const DepositWithdraw: FC = () => {
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
             mode === "deposit"
               ? "bg-emerald-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
           }`}
         >
           Deposit
@@ -116,7 +116,7 @@ export const DepositWithdraw: FC = () => {
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
             mode === "withdraw"
               ? "bg-amber-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
           }`}
         >
           Withdraw
@@ -133,7 +133,7 @@ export const DepositWithdraw: FC = () => {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="1000000"
-          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-white placeholder-gray-600 focus:border-blue-500 focus:outline-none"
+          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -141,7 +141,7 @@ export const DepositWithdraw: FC = () => {
       <button
         onClick={handleSubmit}
         disabled={loading || !amount}
-        className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading
           ? "Sending..."
@@ -150,7 +150,7 @@ export const DepositWithdraw: FC = () => {
             : "Withdraw PERC"}
       </button>
 
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
       {lastSig && (
         <p className="mt-2 text-xs text-gray-500">
@@ -159,7 +159,7 @@ export const DepositWithdraw: FC = () => {
             href={`https://explorer.solana.com/tx/${lastSig}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:underline"
+            className="text-blue-600 hover:underline"
           >
             {lastSig.slice(0, 16)}...
           </a>
