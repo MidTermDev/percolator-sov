@@ -77,13 +77,19 @@ export const DepositWithdraw: FC = () => {
     if (!amount || !userAccount) return;
 
     try {
-      const amtBigint = BigInt(amount);
-      let sig: string | undefined;
+      // Convert human-readable PERC to native units (6 decimals)
+      const parts = amount.split(".");
+      const whole = parts[0] || "0";
+      const frac = (parts[1] || "").padEnd(6, "0").slice(0, 6);
+      const amtNative = BigInt(whole) * 1_000_000n + BigInt(frac);
 
+      if (amtNative <= 0n) throw new Error("Amount must be greater than 0");
+
+      let sig: string | undefined;
       if (mode === "deposit") {
-        sig = await deposit({ userIdx: userAccount.idx, amount: amtBigint });
+        sig = await deposit({ userIdx: userAccount.idx, amount: amtNative });
       } else {
-        sig = await withdraw({ userIdx: userAccount.idx, amount: amtBigint });
+        sig = await withdraw({ userIdx: userAccount.idx, amount: amtNative });
       }
 
       setLastSig(sig ?? null);
@@ -126,13 +132,13 @@ export const DepositWithdraw: FC = () => {
       {/* Amount input */}
       <div className="mb-4">
         <label className="mb-1 block text-xs text-gray-500">
-          Amount (native PERC units)
+          Amount (PERC)
         </label>
         <input
           type="text"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="1000000"
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+          placeholder="2000000"
           className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>

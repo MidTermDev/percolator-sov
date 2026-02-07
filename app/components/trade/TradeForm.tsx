@@ -1,21 +1,62 @@
 "use client";
 
-import { FC, useState } from "react";
+import { FC, useState, useMemo } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useTrade } from "@/hooks/useTrade";
 import { useUserAccount } from "@/hooks/useUserAccount";
 import { useEngineState } from "@/hooks/useEngineState";
+import { useSlabState } from "@/components/providers/SlabProvider";
+import { AccountKind } from "@percolator/core";
+
+const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10];
+
+function formatPerc(native: bigint): string {
+  const whole = native / 1_000_000n;
+  const frac = native % 1_000_000n;
+  if (frac === 0n) return whole.toLocaleString();
+  return `${whole.toLocaleString()}.${frac.toString().padStart(6, "0").replace(/0+$/, "")}`;
+}
+
+function parsePercToNative(input: string): bigint {
+  const parts = input.split(".");
+  const whole = parts[0] || "0";
+  const frac = (parts[1] || "").padEnd(6, "0").slice(0, 6);
+  return BigInt(whole) * 1_000_000n + BigInt(frac);
+}
 
 export const TradeForm: FC = () => {
   const { connected } = useWallet();
   const userAccount = useUserAccount();
   const { trade, loading, error } = useTrade();
   const { params } = useEngineState();
+  const { accounts } = useSlabState();
 
   const [direction, setDirection] = useState<"long" | "short">("long");
-  const [sizeInput, setSizeInput] = useState("");
-  const [lpIdx, setLpIdx] = useState("0");
+  const [marginInput, setMarginInput] = useState("");
+  const [leverage, setLeverage] = useState(2);
   const [lastSig, setLastSig] = useState<string | null>(null);
+
+  // Find first LP account to use as counterparty
+  const lpIdx = useMemo(() => {
+    const lp = accounts.find(({ account }) => account.kind === AccountKind.LP);
+    return lp?.idx ?? 0;
+  }, [accounts]);
+
+  const maxLeverage = params
+    ? Number(10000n / params.initialMarginBps)
+    : 10;
+
+  // Filter leverage options to those <= max
+  const availableLeverage = LEVERAGE_OPTIONS.filter((l) => l <= maxLeverage);
+  if (availableLeverage.length === 0 || availableLeverage[availableLeverage.length - 1] < maxLeverage) {
+    availableLeverage.push(maxLeverage);
+  }
+
+  const balance = userAccount ? userAccount.account.capital : 0n;
+
+  // Compute position size from margin input
+  const marginNative = marginInput ? parsePercToNative(marginInput) : 0n;
+  const positionSize = marginNative * BigInt(leverage);
 
   if (!connected) {
     return (
@@ -35,23 +76,18 @@ export const TradeForm: FC = () => {
     );
   }
 
-  const leverage = params
-    ? (10000n / params.initialMarginBps).toString()
-    : "?";
-
   async function handleTrade() {
-    if (!sizeInput || !userAccount) return;
+    if (!marginInput || !userAccount || positionSize <= 0n) return;
 
     try {
-      const rawSize = BigInt(sizeInput);
-      const size = direction === "short" ? -rawSize : rawSize;
+      const size = direction === "short" ? -positionSize : positionSize;
       const sig = await trade({
-        lpIdx: parseInt(lpIdx),
+        lpIdx,
         userIdx: userAccount.idx,
         size,
       });
       setLastSig(sig ?? null);
-      setSizeInput("");
+      setMarginInput("");
     } catch {
       // error is set by hook
     }
@@ -67,7 +103,7 @@ export const TradeForm: FC = () => {
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setDirection("long")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "long"
               ? "bg-emerald-600 text-white"
               : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -77,7 +113,7 @@ export const TradeForm: FC = () => {
         </button>
         <button
           onClick={() => setDirection("short")}
-          className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+          className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "short"
               ? "bg-red-600 text-white"
               : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -87,44 +123,83 @@ export const TradeForm: FC = () => {
         </button>
       </div>
 
-      {/* Size input */}
+      {/* Margin input */}
       <div className="mb-4">
-        <label className="mb-1 block text-xs text-gray-500">
-          Size (native units)
-        </label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="text-xs text-gray-500">Margin (PERC)</label>
+          <button
+            onClick={() => {
+              if (balance > 0n) setMarginInput(formatPerc(balance));
+            }}
+            className="text-xs text-blue-600 hover:text-blue-700"
+          >
+            Balance: {formatPerc(balance)}
+          </button>
+        </div>
         <input
           type="text"
-          value={sizeInput}
-          onChange={(e) => setSizeInput(e.target.value)}
-          placeholder="1000000"
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          value={marginInput}
+          onChange={(e) => setMarginInput(e.target.value.replace(/[^0-9.]/g, ""))}
+          placeholder="100000"
+          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
-      {/* LP Index */}
+      {/* Leverage selector */}
       <div className="mb-4">
-        <label className="mb-1 block text-xs text-gray-500">LP Index</label>
-        <input
-          type="text"
-          value={lpIdx}
-          onChange={(e) => setLpIdx(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
+        <label className="mb-1 block text-xs text-gray-500">Leverage</label>
+        <div className="flex gap-1.5">
+          {availableLeverage.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLeverage(l)}
+              className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${
+                leverage === l
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              }`}
+            >
+              {l}x
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Info */}
-      <div className="mb-4 text-xs text-gray-500">
-        <p>Max Leverage: {leverage}x</p>
-        <p>Account Index: {userAccount.idx}</p>
-      </div>
+      {/* Position summary */}
+      {marginInput && marginNative > 0n && (
+        <div className="mb-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+          <div className="flex justify-between">
+            <span>Position Size</span>
+            <span className="font-medium text-gray-900">
+              {formatPerc(positionSize)} PERC
+            </span>
+          </div>
+          <div className="mt-1 flex justify-between">
+            <span>Direction</span>
+            <span
+              className={`font-medium ${
+                direction === "long" ? "text-emerald-600" : "text-red-600"
+              }`}
+            >
+              {direction === "long" ? "Long" : "Short"} {leverage}x
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Submit */}
       <button
         onClick={handleTrade}
-        disabled={loading || !sizeInput}
-        className="w-full rounded-lg bg-blue-600 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        disabled={loading || !marginInput || positionSize <= 0n}
+        className={`w-full rounded-lg py-3 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+          direction === "long"
+            ? "bg-emerald-600 hover:bg-emerald-700"
+            : "bg-red-600 hover:bg-red-700"
+        }`}
       >
-        {loading ? "Sending..." : `${direction === "long" ? "Long" : "Short"} PERC`}
+        {loading
+          ? "Sending..."
+          : `${direction === "long" ? "Long" : "Short"} ${leverage}x`}
       </button>
 
       {error && (
