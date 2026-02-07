@@ -5,11 +5,13 @@ import { useEngineState } from "@/hooks/useEngineState";
 import { useMarketConfig } from "@/hooks/useMarketConfig";
 import { useSlabState } from "@/components/providers/SlabProvider";
 import { formatTokenAmount, formatUsd, formatBps } from "@/lib/format";
+import { useLivePrice } from "@/hooks/useLivePrice";
 
 export const MarketStats: FC = () => {
   const { engine, params, loading } = useEngineState();
   const { error } = useSlabState();
   const config = useMarketConfig();
+  const { priceE6: livePriceE6 } = useLivePrice();
 
   if (loading) {
     return (
@@ -30,8 +32,8 @@ export const MarketStats: FC = () => {
 
   const stats = [
     {
-      label: "Oracle Price",
-      value: formatUsd(config.lastEffectivePriceE6),
+      label: "PERC Price",
+      value: formatUsd(livePriceE6 ?? config.lastEffectivePriceE6),
     },
     {
       label: "Total Open Interest",

@@ -7,12 +7,18 @@ import { useTrade } from "@/hooks/useTrade";
 import { useSlabState } from "@/components/providers/SlabProvider";
 import { AccountKind } from "@percolator/core";
 import { formatTokenAmount, formatUsd } from "@/lib/format";
+import { useLivePrice } from "@/hooks/useLivePrice";
+
+function abs(n: bigint): bigint {
+  return n < 0n ? -n : n;
+}
 
 export const PositionPanel: FC = () => {
   const userAccount = useUserAccount();
   const config = useMarketConfig();
   const { trade, loading: closeLoading, error: closeError } = useTrade();
   const { accounts } = useSlabState();
+  const { priceE6: livePriceE6 } = useLivePrice();
   const [closeSig, setCloseSig] = useState<string | null>(null);
 
   // Find first LP for close trade
@@ -35,33 +41,43 @@ export const PositionPanel: FC = () => {
   const { account } = userAccount;
   const hasPosition = account.positionSize !== 0n;
   const isLong = account.positionSize > 0n;
-  const absPosition = account.positionSize < 0n
-    ? -account.positionSize
-    : account.positionSize;
+  const absPosition = abs(account.positionSize);
+  // Use live DexScreener price if available, fall back to on-chain oracle
+  const onChainPriceE6 = config?.lastEffectivePriceE6 ?? 0n;
+  const currentPriceE6 = livePriceE6 ?? onChainPriceE6;
 
-  const pnlPositive = account.pnl > 0n;
-  const pnlColor = account.pnl === 0n
-    ? "text-gray-400"
-    : pnlPositive
-      ? "text-emerald-600"
-      : "text-red-600";
+  // Entry price is stored on-chain in reservedPnl (set when position opens).
+  // This is stable — it doesn't change during crank settlements.
+  // For positions opened before this upgrade, reservedPnl = 0 so we fall back
+  // to the slab entry_price (approximate, last settlement price).
+  const entryPriceE6 = account.reservedPnl > 0n
+    ? account.reservedPnl
+    : account.entryPrice;
 
-  // Estimate margin health
-  let liqPriceStr = "N/A";
-  if (hasPosition && config) {
-    const oraclePrice = Number(config.lastEffectivePriceE6) / 1e6;
-    const capital = Number(account.capital) / 1e6;
-    const posSize = Number(absPosition) / 1e6;
-    if (posSize > 0) {
-      const marginRatio = capital / (posSize * oraclePrice);
-      liqPriceStr = `~${(marginRatio * 100).toFixed(1)}% margin`;
-    }
+  // Coin-margined PnL: pnl_perc = position * (currentPrice - entryPrice) / currentPrice
+  let pnlPerc = 0n;
+  if (hasPosition && currentPriceE6 > 0n && entryPriceE6 > 0n) {
+    const priceDelta = currentPriceE6 - entryPriceE6;
+    pnlPerc = (account.positionSize * priceDelta) / currentPriceE6;
+  }
+
+  const pnlColor =
+    pnlPerc === 0n
+      ? "text-gray-400"
+      : pnlPerc > 0n
+        ? "text-emerald-600"
+        : "text-red-600";
+
+  // Margin health: capital / |position| as percentage (position-based, matches on-chain)
+  let marginHealthStr = "N/A";
+  if (hasPosition && absPosition > 0n) {
+    const healthPct = Number((account.capital * 100n) / absPosition);
+    marginHealthStr = `${healthPct.toFixed(1)}%`;
   }
 
   async function handleClose() {
     if (!userAccount || !hasPosition) return;
     try {
-      // Close = trade opposite direction with same size
       const closeSize = isLong ? -absPosition : absPosition;
       const sig = await trade({
         lpIdx,
@@ -103,22 +119,25 @@ export const PositionPanel: FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Entry Price</span>
             <span className="text-sm text-gray-900">
-              {formatUsd(account.entryPrice)}
+              {formatUsd(entryPriceE6)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">Current Price</span>
+            <span className="text-sm text-gray-900">
+              {formatUsd(currentPriceE6)}
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Unrealized PnL</span>
             <span className={`text-sm font-medium ${pnlColor}`}>
-              {account.pnl > 0n ? "+" : ""}
-              {formatTokenAmount(
-                account.pnl < 0n ? -account.pnl : account.pnl
-              )}
-              {account.pnl < 0n ? " (loss)" : ""} PERC
+              {pnlPerc > 0n ? "+" : pnlPerc < 0n ? "-" : ""}
+              {formatTokenAmount(abs(pnlPerc))} PERC
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Margin Health</span>
-            <span className="text-sm text-gray-400">{liqPriceStr}</span>
+            <span className="text-xs text-gray-500">Margin</span>
+            <span className="text-sm text-gray-400">{marginHealthStr}</span>
           </div>
 
           {/* Close position button */}
