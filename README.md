@@ -1,12 +1,39 @@
-# percolator-cli
+# Percolator SOV
 
-Command-line interface for interacting with the Percolator perpetuals protocol on Solana.
+**Store of Value** protocol built on the [Percolator](https://github.com/aeyakovenko/percolator) perpetuals engine on Solana.
+
+## PERC Token
+
+```
+Mint: A16Gd8AfaPnG6rohE6iPFDf6mr9gk519d6aMUJAperc
+```
+
+## How It Works
+
+Percolator SOV creates a deflationary flywheel around the $PERC token:
+
+1. **Inverted perp market** — PERC is the collateral token. Traders deposit PERC to open leveraged positions.
+2. **Trading fees accumulate** — Every trade pays fees that flow into the protocol's insurance fund, denominated in PERC.
+3. **Admin key burn** — Once the market is live and stable, the admin key is burned (transferred to the system program). This is irreversible.
+4. **Fees locked forever** — With no admin, the insurance fund can never be withdrawn. PERC locked in the fund is permanently removed from circulation.
+5. **Deflationary pressure** — As trading continues, more PERC gets locked, shrinking circulating supply over time.
+
+The result: a perpetuals market where trading activity directly benefits token holders by reducing supply.
+
+## Project Structure
+
+```
+packages/core/    @percolator/core   — Shared slab parsing, ABI encoding, PDA derivation, validation
+packages/cli/     @percolator/cli    — CLI tool (32 commands)
+app/              @percolator/app    — Next.js frontend with Solana wallet adapter
+scripts/                             — Mainnet deployment, crank bot, admin burn
+```
 
 ## Related Repositories
 
 - [percolator](https://github.com/aeyakovenko/percolator) - Risk engine library
-- [percolator-prog](https://github.com/aeyakovenko/percolator-prog) - Main Percolator program (Solana smart contract)
-- [percolator-match](https://github.com/aeyakovenko/percolator-match) - Passive LP matcher program (50bps spread)
+- [percolator-prog](https://github.com/aeyakovenko/percolator-prog) - Percolator program (Solana smart contract)
+- [percolator-match](https://github.com/aeyakovenko/percolator-match) - Passive LP matcher program
 
 ## Disclaimer
 
