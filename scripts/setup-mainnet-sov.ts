@@ -117,31 +117,19 @@ async function main() {
   const balance = await connection.getBalance(payer.publicKey);
   console.log(`Balance: ${(balance / 1e9).toFixed(4)} SOL\n`);
 
-  // Step 1: Create slab account
-  console.log("Step 1: Creating slab account...");
-  const slab = Keypair.generate();
+  // Step 1: Load existing slab account (created by create-slab.ts)
+  console.log("Step 1: Loading existing slab account...");
+  const slabKpPath = "./slab-keypair.json";
+  if (!fs.existsSync(slabKpPath)) throw new Error("slab-keypair.json not found. Run create-slab.ts first.");
+  const slab = loadKeypair(slabKpPath);
   console.log(`  Slab: ${slab.publicKey.toBase58()}`);
 
-  const rentExempt = await connection.getMinimumBalanceForRentExemption(SLAB_SIZE);
-  console.log(`  Rent: ${(rentExempt / 1e9).toFixed(4)} SOL`);
+  const slabCheck = await connection.getAccountInfo(slab.publicKey);
+  if (!slabCheck) throw new Error("Slab account not found on-chain!");
+  console.log(`  Slab exists on-chain (${slabCheck.data.length} bytes)`);
 
-  const createSlabTx = new Transaction();
-  addPriorityFee(createSlabTx);
-  createSlabTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }));
-  createSlabTx.add(
-    SystemProgram.createAccount({
-      fromPubkey: payer.publicKey,
-      newAccountPubkey: slab.publicKey,
-      lamports: rentExempt,
-      space: SLAB_SIZE,
-      programId: PROGRAM_ID,
-    })
-  );
-  await sendAndConfirmTransaction(connection, createSlabTx, [payer, slab], { commitment: "confirmed" });
-  console.log("  Slab created");
-
-  // Step 2: Derive vault PDA + create vault ATA
-  console.log("\nStep 2: Setting up vault...");
+  // Steps 2-6 already completed. Derive vault addresses for later steps.
+  console.log("\nSteps 2-6: Already completed. Deriving addresses...");
   const [vaultPda] = deriveVaultAuthority(PROGRAM_ID, slab.publicKey);
   console.log(`  Vault PDA: ${vaultPda.toBase58()}`);
 
@@ -150,104 +138,6 @@ async function main() {
   );
   const vault = vaultAccount.address;
   console.log(`  Vault ATA: ${vault.toBase58()}`);
-
-  // Step 3: Initialize market (inverted, admin oracle)
-  console.log("\nStep 3: Initializing INVERTED market with admin oracle...");
-  const allZeroFeedId = "0".repeat(64); // Admin oracle mode
-
-  const initMarketData = encodeInitMarket({
-    admin: payer.publicKey,
-    collateralMint: PERC_MINT,
-    indexFeedId: allZeroFeedId,
-    maxStalenessSecs: "86400",           // 24h (admin oracle doesn't use staleness)
-    confFilterBps: 0,                     // No confidence filter for admin oracle
-    invert: 1,                            // INVERTED market
-    unitScale: 0,
-    initialMarkPriceE6: "1000000",       // $1.00 initial price
-    warmupPeriodSlots: "100",
-    maintenanceMarginBps: "500",          // 5% maintenance margin
-    initialMarginBps: "1000",             // 10% initial margin
-    tradingFeeBps: "30",                  // 0.3% trading fee
-    maxAccounts: "4096",
-    newAccountFee: "1000000",             // 1 PERC account creation fee
-    riskReductionThreshold: "0",
-    maintenanceFeePerSlot: "0",
-    maxCrankStalenessSlots: "400",
-    liquidationFeeBps: "100",             // 1% liquidation fee
-    liquidationFeeCap: "100000000000",    // 100k PERC cap
-    liquidationBufferBps: "50",           // 0.5% buffer
-    minLiquidationAbs: "1000000",         // 1 PERC minimum
-  });
-
-  const initMarketKeys = buildAccountMetas(ACCOUNTS_INIT_MARKET, [
-    payer.publicKey,
-    slab.publicKey,
-    PERC_MINT,
-    vault,
-    TOKEN_PROGRAM_ID,
-    SYSVAR_CLOCK_PUBKEY,
-    SYSVAR_RENT_PUBKEY,
-    vaultPda,
-    SystemProgram.programId,
-  ]);
-
-  const initTx = new Transaction();
-  addPriorityFee(initTx);
-  initTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 200_000 }));
-  initTx.add(buildIx({ programId: PROGRAM_ID, keys: initMarketKeys, data: initMarketData }));
-  await sendAndConfirmTransaction(connection, initTx, [payer], { commitment: "confirmed" });
-  console.log("  Market initialized (inverted=true, adminOracle=true)");
-
-  // Step 4: Set oracle authority to admin
-  console.log("\nStep 4: Setting oracle authority...");
-  const setAuthData = encodeSetOracleAuthority({ newAuthority: payer.publicKey });
-  const setAuthKeys = buildAccountMetas(ACCOUNTS_SET_ORACLE_AUTHORITY, [
-    payer.publicKey,
-    slab.publicKey,
-  ]);
-
-  const setAuthTx = new Transaction();
-  addPriorityFee(setAuthTx);
-  setAuthTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }));
-  setAuthTx.add(buildIx({ programId: PROGRAM_ID, keys: setAuthKeys, data: setAuthData }));
-  await sendAndConfirmTransaction(connection, setAuthTx, [payer], { commitment: "confirmed" });
-  console.log(`  Oracle authority set to ${payer.publicKey.toBase58()}`);
-
-  // Step 5: Push initial price
-  console.log("\nStep 5: Pushing initial oracle price...");
-  const now = Math.floor(Date.now() / 1000);
-  const pushPriceData = encodePushOraclePrice({ priceE6: "1000000", timestamp: now.toString() });
-  const pushPriceKeys = buildAccountMetas(ACCOUNTS_PUSH_ORACLE_PRICE, [
-    payer.publicKey,
-    slab.publicKey,
-  ]);
-
-  const pushTx = new Transaction();
-  addPriorityFee(pushTx);
-  pushTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }));
-  pushTx.add(buildIx({ programId: PROGRAM_ID, keys: pushPriceKeys, data: pushPriceData }));
-  await sendAndConfirmTransaction(connection, pushTx, [payer], { commitment: "confirmed" });
-  console.log("  Price set to $1.00");
-
-  // Step 6: Run initial keeper crank
-  console.log("\nStep 6: Running initial keeper crank...");
-  const crankData = encodeKeeperCrank({ callerIdx: 65535, allowPanic: false });
-  const crankKeys = buildAccountMetas(ACCOUNTS_KEEPER_CRANK, [
-    payer.publicKey,
-    slab.publicKey,
-    SYSVAR_CLOCK_PUBKEY,
-    slab.publicKey, // oracle account (admin oracle uses slab itself)
-  ]);
-
-  const crankTx = new Transaction();
-  addPriorityFee(crankTx);
-  crankTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }));
-  crankTx.add(buildIx({ programId: PROGRAM_ID, keys: crankKeys, data: crankData }));
-  await sendAndConfirmTransaction(connection, crankTx, [payer], {
-    commitment: "confirmed",
-    skipPreflight: true,
-  });
-  console.log("  Keeper crank executed");
 
   // Step 7: Create admin PERC ATA + LP
   console.log("\nStep 7: Setting up LP...");
@@ -280,7 +170,29 @@ async function main() {
 
   const [lpPda] = deriveLpPda(PROGRAM_ID, slab.publicKey, lpIndex);
 
-  // Initialize matcher context
+  // Initialize matcher context with vAMM Tag 2 (66 bytes)
+  const initVammData = Buffer.alloc(66);
+  {
+    let off = 0;
+    initVammData.writeUInt8(2, off); off += 1;         // Tag 2 = InitVamm
+    initVammData.writeUInt8(0, off); off += 1;         // mode 0 = passive
+    initVammData.writeUInt32LE(50, off); off += 4;     // tradingFeeBps = 50 (0.5%)
+    initVammData.writeUInt32LE(50, off); off += 4;     // baseSpreadBps = 50 (0.5%)
+    initVammData.writeUInt32LE(200, off); off += 4;    // maxTotalBps = 200 (2%)
+    initVammData.writeUInt32LE(0, off); off += 4;      // impactKBps = 0 (passive)
+    // liquidityNotionalE6 (u128) = 10M
+    const liq = 10_000_000_000_000n;
+    initVammData.writeBigUInt64LE(liq & 0xFFFFFFFFFFFFFFFFn, off); off += 8;
+    initVammData.writeBigUInt64LE(liq >> 64n, off); off += 8;
+    // maxFillAbs (u128) = 1M PERC
+    const maxFill = 1_000_000_000_000n;
+    initVammData.writeBigUInt64LE(maxFill & 0xFFFFFFFFFFFFFFFFn, off); off += 8;
+    initVammData.writeBigUInt64LE(maxFill >> 64n, off); off += 8;
+    // maxInventoryAbs (u128) = 0 (unlimited)
+    initVammData.writeBigUInt64LE(0n, off); off += 8;
+    initVammData.writeBigUInt64LE(0n, off); off += 8;
+  }
+
   const initMatcherTx = new Transaction();
   addPriorityFee(initMatcherTx);
   initMatcherTx.add(ComputeBudgetProgram.setComputeUnitLimit({ units: 50_000 }));
@@ -290,7 +202,7 @@ async function main() {
       { pubkey: lpPda, isSigner: false, isWritable: false },
       { pubkey: matcherCtxKp.publicKey, isSigner: false, isWritable: true },
     ],
-    data: Buffer.from([1]),
+    data: initVammData,
   });
   await sendAndConfirmTransaction(connection, initMatcherTx, [payer], { commitment: "confirmed" });
 
