@@ -16,40 +16,40 @@ const WalletMultiButton = dynamic(
 export const Header: FC = () => {
   return (
     <header className="px-4 pt-4">
-      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between rounded-2xl border border-gray-200 bg-white/80 px-6 shadow-sm backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between rounded-2xl border border-[#1e1e2e] bg-[#12121a]/80 px-6 shadow-sm backdrop-blur-md">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 text-lg font-bold text-gray-900">
+          <Link href="/" className="flex items-center gap-2 text-lg font-bold text-[#e4e4e7]">
             <Image src="/logo.png" alt="Percolator" width={28} height={28} className="rounded-md" />
             Percolator SOV
           </Link>
           <nav className="flex gap-6">
             <Link
               href="/"
-              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+              className="text-sm font-medium text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             >
               Home
             </Link>
             <Link
               href="/markets"
-              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+              className="text-sm font-medium text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             >
               Markets
             </Link>
             <Link
               href="/create"
-              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+              className="text-sm font-medium text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             >
               Create
             </Link>
             <Link
               href="/trade"
-              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+              className="text-sm font-medium text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             >
               Trade
             </Link>
             <Link
               href="/dashboard"
-              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+              className="text-sm font-medium text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             >
               Dashboard
             </Link>
@@ -60,7 +60,7 @@ export const Header: FC = () => {
             href="https://github.com/MidTermDev/percolator-sov"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-gray-400 transition-colors hover:text-gray-900"
+            className="text-[#71717a] transition-colors hover:text-[#e4e4e7]"
             aria-label="GitHub"
           >
             <svg

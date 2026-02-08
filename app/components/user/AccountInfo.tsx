@@ -17,28 +17,28 @@ export const AccountInfo: FC = () => {
 
   if (!connected) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-gray-400">Connect your wallet to view account</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 text-center shadow-sm">
+        <p className="text-[#71717a]">Connect your wallet to view account</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <p className="text-gray-500">Loading account...</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+        <p className="text-[#71717a]">Loading account...</p>
       </div>
     );
   }
 
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-gray-400">
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+        <h3 className="mb-2 text-sm font-medium uppercase tracking-wider text-[#71717a]">
           Account
         </h3>
-        <p className="text-sm text-gray-500">No account found for this wallet.</p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="text-sm text-[#71717a]">No account found for this wallet.</p>
+        <p className="mt-1 text-xs text-[#52525b]">
           Create an account from the Dashboard to start trading.
         </p>
       </div>
@@ -49,36 +49,36 @@ export const AccountInfo: FC = () => {
   const equity = account.capital + (account.pnl > 0n ? account.pnl : 0n);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+    <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
         Account
       </h3>
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Index</span>
-          <span className="text-sm text-gray-900">{idx}</span>
+          <span className="text-xs text-[#71717a]">Index</span>
+          <span className="text-sm text-[#e4e4e7]">{idx}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Type</span>
-          <span className="text-sm text-gray-900">
+          <span className="text-xs text-[#71717a]">Type</span>
+          <span className="text-sm text-[#e4e4e7]">
             {account.kind === AccountKind.LP ? "LP" : "User"}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Capital</span>
-          <span className="text-sm text-gray-900">
+          <span className="text-xs text-[#71717a]">Capital</span>
+          <span className="text-sm text-[#e4e4e7]">
             {formatTokenAmount(account.capital)} {symbol}
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">PnL</span>
+          <span className="text-xs text-[#71717a]">PnL</span>
           <span
             className={`text-sm font-medium ${
               account.pnl === 0n
-                ? "text-gray-400"
+                ? "text-[#71717a]"
                 : account.pnl > 0n
-                  ? "text-emerald-600"
-                  : "text-red-600"
+                  ? "text-emerald-400"
+                  : "text-red-400"
             }`}
           >
             {account.pnl > 0n ? "+" : ""}
@@ -87,8 +87,8 @@ export const AccountInfo: FC = () => {
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">Equity</span>
-          <span className="text-sm font-medium text-gray-900">
+          <span className="text-xs text-[#71717a]">Equity</span>
+          <span className="text-sm font-medium text-[#e4e4e7]">
             {formatTokenAmount(equity)} {symbol}
           </span>
         </div>

@@ -40,7 +40,6 @@ export const TradeForm: FC = () => {
   const [leverage, setLeverage] = useState(1);
   const [lastSig, setLastSig] = useState<string | null>(null);
 
-  // Find first LP account to use as counterparty
   const lpIdx = useMemo(() => {
     const lp = accounts.find(({ account }) => account.kind === AccountKind.LP);
     return lp?.idx ?? 0;
@@ -49,7 +48,6 @@ export const TradeForm: FC = () => {
   const initialMarginBps = params?.initialMarginBps ?? 1000n;
   const maxLeverage = Number(10000n / initialMarginBps);
 
-  // Filter leverage options to those <= max
   const availableLeverage = LEVERAGE_OPTIONS.filter((l) => l <= maxLeverage);
   if (availableLeverage.length === 0 || availableLeverage[availableLeverage.length - 1] < maxLeverage) {
     availableLeverage.push(maxLeverage);
@@ -59,41 +57,38 @@ export const TradeForm: FC = () => {
   const existingPosition = userAccount ? userAccount.account.positionSize : 0n;
   const hasPosition = existingPosition !== 0n;
 
-  // Compute position size from margin input
   const marginNative = marginInput ? parsePercToNative(marginInput) : 0n;
   const positionSize = marginNative * BigInt(leverage);
 
-  // Validate: margin can't exceed capital
   const exceedsMargin = marginNative > 0n && marginNative > capital;
 
   if (!connected) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-gray-400">Connect your wallet to trade</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 text-center shadow-sm">
+        <p className="text-[#71717a]">Connect your wallet to trade</p>
       </div>
     );
   }
 
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-gray-400">
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 text-center shadow-sm">
+        <p className="text-[#71717a]">
           No account found. Go to Dashboard to create one.
         </p>
       </div>
     );
   }
 
-  // Block trading when a position is already open
   if (hasPosition) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
           Trade
         </h3>
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-900/50 bg-amber-900/20 p-4 text-sm text-amber-300">
           <p className="font-medium">Position open</p>
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 text-xs text-amber-400/70">
             You have an open {existingPosition > 0n ? "LONG" : "SHORT"} of{" "}
             {formatPerc(abs(existingPosition))} {symbol}.
             Close your position before opening a new one.
@@ -121,8 +116,8 @@ export const TradeForm: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+    <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
         Trade
       </h3>
 
@@ -133,7 +128,7 @@ export const TradeForm: FC = () => {
           className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "long"
               ? "bg-emerald-600 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
           }`}
         >
           Long
@@ -143,7 +138,7 @@ export const TradeForm: FC = () => {
           className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "short"
               ? "bg-red-600 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
           }`}
         >
           Short
@@ -153,12 +148,12 @@ export const TradeForm: FC = () => {
       {/* Margin input */}
       <div className="mb-4">
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs text-gray-500">Margin ({symbol})</label>
+          <label className="text-xs text-[#71717a]">Margin ({symbol})</label>
           <button
             onClick={() => {
               if (capital > 0n) setMarginInput((capital / 1_000_000n).toString());
             }}
-            className="text-xs text-blue-600 hover:text-blue-700"
+            className="text-xs text-blue-400 hover:text-blue-300"
           >
             Balance: {formatPerc(capital)}
           </button>
@@ -168,14 +163,14 @@ export const TradeForm: FC = () => {
           value={marginInput}
           onChange={(e) => setMarginInput(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="100000"
-          className={`w-full rounded-lg border px-3 py-2.5 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 ${
+          className={`w-full rounded-lg border px-3 py-2.5 text-[#e4e4e7] placeholder-[#52525b] focus:outline-none focus:ring-1 ${
             exceedsMargin
-              ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500"
-              : "border-gray-300 bg-gray-50 focus:border-blue-500 focus:ring-blue-500"
+              ? "border-red-500/50 bg-red-900/20 focus:border-red-500 focus:ring-red-500"
+              : "border-[#1e1e2e] bg-[#1a1a28] focus:border-blue-500 focus:ring-blue-500"
           }`}
         />
         {exceedsMargin && (
-          <p className="mt-1 text-xs text-red-600">
+          <p className="mt-1 text-xs text-red-400">
             Exceeds balance ({formatPerc(capital)} {symbol})
           </p>
         )}
@@ -183,7 +178,7 @@ export const TradeForm: FC = () => {
 
       {/* Leverage selector */}
       <div className="mb-4">
-        <label className="mb-1 block text-xs text-gray-500">Leverage</label>
+        <label className="mb-1 block text-xs text-[#71717a]">Leverage</label>
         <div className="flex gap-1.5">
           {availableLeverage.map((l) => (
             <button
@@ -192,7 +187,7 @@ export const TradeForm: FC = () => {
               className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${
                 leverage === l
                   ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
               }`}
             >
               {l}x
@@ -203,10 +198,10 @@ export const TradeForm: FC = () => {
 
       {/* Position summary */}
       {marginInput && marginNative > 0n && !exceedsMargin && (
-        <div className="mb-4 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+        <div className="mb-4 rounded-lg bg-[#1a1a28] p-3 text-xs text-[#71717a]">
           <div className="flex justify-between">
             <span>Position Size</span>
-            <span className="font-medium text-gray-900">
+            <span className="font-medium text-[#e4e4e7]">
               {formatPerc(positionSize)} {symbol}
             </span>
           </div>
@@ -214,7 +209,7 @@ export const TradeForm: FC = () => {
             <span>Direction</span>
             <span
               className={`font-medium ${
-                direction === "long" ? "text-emerald-600" : "text-red-600"
+                direction === "long" ? "text-emerald-400" : "text-red-400"
               }`}
             >
               {direction === "long" ? "Long" : "Short"} {leverage}x
@@ -239,17 +234,17 @@ export const TradeForm: FC = () => {
       </button>
 
       {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
+        <p className="mt-2 text-xs text-red-400">{error}</p>
       )}
 
       {lastSig && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-[#71717a]">
           Tx:{" "}
           <a
             href={`https://explorer.solana.com/tx/${lastSig}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
+            className="text-blue-400 hover:underline"
           >
             {lastSig.slice(0, 16)}...
           </a>

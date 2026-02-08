@@ -2,10 +2,10 @@ import { FC } from "react";
 import type { HealthLevel } from "@/lib/health";
 
 const STYLES: Record<HealthLevel, string> = {
-  healthy: "bg-green-100 text-green-700",
-  caution: "bg-yellow-100 text-yellow-700",
-  warning: "bg-red-100 text-red-700",
-  empty: "bg-gray-100 text-gray-500",
+  healthy: "bg-green-900/40 text-green-400",
+  caution: "bg-yellow-900/40 text-yellow-400",
+  warning: "bg-red-900/40 text-red-400",
+  empty: "bg-[#1a1a2e] text-[#71717a]",
 };
 
 const LABELS: Record<HealthLevel, string> = {

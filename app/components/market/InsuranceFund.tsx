@@ -14,29 +14,29 @@ export const InsuranceFund: FC = () => {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-gray-500">Loading insurance fund...</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-8 text-center shadow-sm">
+        <p className="text-[#71717a]">Loading insurance fund...</p>
       </div>
     );
   }
 
   if (!insuranceFund) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-gray-500">Market not loaded</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-8 text-center shadow-sm">
+        <p className="text-[#71717a]">Market not loaded</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-white to-emerald-50 p-8 shadow-sm">
-      <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-emerald-600">
+    <div className="rounded-xl border border-emerald-900/50 bg-gradient-to-br from-[#12121a] to-emerald-950/30 p-8 shadow-sm">
+      <h2 className="mb-2 text-sm font-medium uppercase tracking-wider text-emerald-400">
         Insurance Fund (Locked Forever)
       </h2>
-      <p className="text-4xl font-bold text-gray-900">
+      <p className="text-4xl font-bold text-[#e4e4e7]">
         {formatTokenAmount(insuranceFund.balance)} {symbol}
       </p>
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="mt-2 text-sm text-[#71717a]">
         Fee Revenue: {formatTokenAmount(insuranceFund.feeRevenue)} {symbol}
       </p>
     </div>

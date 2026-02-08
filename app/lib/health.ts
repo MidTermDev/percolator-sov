@@ -25,11 +25,11 @@ export function computeMarketHealth(engine: EngineState): MarketHealth {
   const insuranceRatio = Number(insurance * 10000n / oi) / 10000;
   const capitalRatio = Number(capital * 10000n / oi) / 10000;
 
-  if (insuranceRatio < 0.05 || capitalRatio < 1.1) {
+  if (insuranceRatio < 0.02 || capitalRatio < 0.5) {
     return { level: "warning", label: "Low Liquidity", insuranceRatio, capitalRatio };
   }
 
-  if (insuranceRatio < 0.2 || capitalRatio < 2.0) {
+  if (insuranceRatio < 0.05 || capitalRatio < 0.8) {
     return { level: "caution", label: "Caution", insuranceRatio, capitalRatio };
   }
 

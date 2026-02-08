@@ -20,7 +20,6 @@ function isAdminOracle(market: DiscoveredMarket): boolean {
 export const MarketBrowser: FC = () => {
   const { markets, loading, error } = useMarketDiscovery();
 
-  // Collect all collateral mints for metadata lookup
   const mints = useMemo(
     () => markets.map((m) => m.config.collateralMint),
     [markets],
@@ -29,8 +28,8 @@ export const MarketBrowser: FC = () => {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-gray-500">Discovering markets...</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-8 text-center shadow-sm">
+        <p className="text-[#71717a]">Discovering markets...</p>
       </div>
     );
   }
@@ -40,26 +39,26 @@ export const MarketBrowser: FC = () => {
       ? "Set the NEXT_PUBLIC_PROGRAM_ID environment variable to your Percolator program address."
       : error;
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-red-500">Error: {helpMsg}</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-8 text-center shadow-sm">
+        <p className="text-red-400">Error: {helpMsg}</p>
       </div>
     );
   }
 
   if (markets.length === 0) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <p className="text-gray-500">No markets found</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-8 text-center shadow-sm">
+        <p className="text-[#71717a]">No markets found</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-xs uppercase text-gray-400">
+            <tr className="border-b border-[#1e1e2e] text-xs uppercase text-[#71717a]">
               <th className="px-4 py-3 font-medium">Market</th>
               <th className="px-4 py-3 font-medium">Collateral</th>
               <th className="px-4 py-3 font-medium">Oracle</th>
@@ -70,7 +69,7 @@ export const MarketBrowser: FC = () => {
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-[#1e1e2e]/50">
             {[...markets].sort((a, b) => {
               const order: Record<string, number> = { healthy: 0, caution: 1, warning: 2, empty: 3 };
               return (order[computeMarketHealth(a.engine).level] ?? 4) -
@@ -83,17 +82,17 @@ export const MarketBrowser: FC = () => {
               const decimals = meta?.decimals ?? 6;
 
               return (
-                <tr key={slab} className="hover:bg-gray-50">
+                <tr key={slab} className="hover:bg-[#1a1a2e]">
                   <td className="px-4 py-3">
-                    <div className="font-medium text-gray-900">{symbol}/USD PERP</div>
-                    <div className="font-mono text-xs text-gray-400">{shortenAddress(slab, 6)}</div>
+                    <div className="font-medium text-[#e4e4e7]">{symbol}/USD PERP</div>
+                    <div className="font-mono text-xs text-[#52525b]">{shortenAddress(slab, 6)}</div>
                   </td>
                   <td className="px-4 py-3">
                     <a
                       href={`https://solscan.io/token/${mintBase58}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm font-medium text-blue-600 hover:underline"
+                      className="text-sm font-medium text-blue-400 hover:underline"
                     >
                       {symbol}
                     </a>
@@ -102,29 +101,29 @@ export const MarketBrowser: FC = () => {
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         isAdminOracle(m)
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-blue-100 text-blue-700"
+                          ? "bg-amber-900/40 text-amber-400"
+                          : "bg-blue-900/40 text-blue-400"
                       }`}
                     >
                       {isAdminOracle(m) ? "Admin" : "Pyth"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-900">
+                  <td className="px-4 py-3 text-right text-[#e4e4e7]">
                     {formatTokenAmount(m.engine.totalOpenInterest, decimals)} {symbol}
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-900">
+                  <td className="px-4 py-3 text-right text-[#e4e4e7]">
                     {formatTokenAmount(m.engine.insuranceFund.balance, decimals)} {symbol}
                   </td>
                   <td className="px-4 py-3">
                     <HealthBadge level={computeMarketHealth(m.engine).level} />
                   </td>
-                  <td className="px-4 py-3 text-right text-gray-900">
+                  <td className="px-4 py-3 text-right text-[#e4e4e7]">
                     {m.engine.numUsedAccounts}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
                       href={`/trade?market=${slab}`}
-                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-gray-800"
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
                     >
                       Trade
                     </Link>

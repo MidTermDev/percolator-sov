@@ -1,33 +1,31 @@
 "use client";
 
-import { TradeForm } from "@/components/trade/TradeForm";
-import { PositionPanel } from "@/components/trade/PositionPanel";
-import { MarketStats } from "@/components/market/MarketStats";
-import { FundingRate } from "@/components/market/FundingRate";
-import { InsuranceFund } from "@/components/market/InsuranceFund";
+import { DepositWithdrawCard } from "@/components/trade/DepositWithdrawCard";
+import { MarketStatsCard } from "@/components/trade/MarketStatsCard";
+import { EngineHealthCard } from "@/components/trade/EngineHealthCard";
+import { MarketBookCard } from "@/components/trade/MarketBookCard";
+import { AccountsCard } from "@/components/trade/AccountsCard";
 
 export default function TradePage() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="mb-8 text-3xl font-bold">Trade</h1>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left: Trade form */}
-        <div className="space-y-6">
-          <TradeForm />
+    <div className="mx-auto max-w-7xl px-4 py-6">
+      {/* Row 1: Deposit/Withdraw | Market Stats (2x wide) | Engine Health */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-4">
+        <div className="lg:col-span-1">
+          <DepositWithdrawCard />
         </div>
-
-        {/* Middle: Position + Market stats */}
-        <div className="space-y-6">
-          <PositionPanel />
-          <MarketStats />
+        <div className="lg:col-span-2">
+          <MarketStatsCard />
         </div>
-
-        {/* Right: Insurance + Funding */}
-        <div className="space-y-6">
-          <InsuranceFund />
-          <FundingRate />
+        <div className="lg:col-span-1">
+          <EngineHealthCard />
         </div>
+      </div>
+
+      {/* Row 2: Market Book + LP depth | Open Positions / Idle Accounts */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <MarketBookCard />
+        <AccountsCard />
       </div>
     </div>
   );

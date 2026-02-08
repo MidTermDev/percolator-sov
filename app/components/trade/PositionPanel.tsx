@@ -24,7 +24,6 @@ export const PositionPanel: FC = () => {
   const symbol = tokenMeta?.symbol ?? "Token";
   const [closeSig, setCloseSig] = useState<string | null>(null);
 
-  // Find first LP for close trade
   const lpIdx = useMemo(() => {
     const lp = accounts.find(({ account }) => account.kind === AccountKind.LP);
     return lp?.idx ?? 0;
@@ -32,11 +31,11 @@ export const PositionPanel: FC = () => {
 
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
           Position
         </h3>
-        <p className="text-sm text-gray-500">No active position</p>
+        <p className="text-sm text-[#71717a]">No active position</p>
       </div>
     );
   }
@@ -45,19 +44,13 @@ export const PositionPanel: FC = () => {
   const hasPosition = account.positionSize !== 0n;
   const isLong = account.positionSize > 0n;
   const absPosition = abs(account.positionSize);
-  // Use live DexScreener price if available, fall back to on-chain oracle
   const onChainPriceE6 = config?.lastEffectivePriceE6 ?? 0n;
   const currentPriceE6 = livePriceE6 ?? onChainPriceE6;
 
-  // Entry price is stored on-chain in reservedPnl (set when position opens).
-  // This is stable — it doesn't change during crank settlements.
-  // For positions opened before this upgrade, reservedPnl = 0 so we fall back
-  // to the slab entry_price (approximate, last settlement price).
   const entryPriceE6 = account.reservedPnl > 0n
     ? account.reservedPnl
     : account.entryPrice;
 
-  // Coin-margined PnL: pnl_perc = position * (currentPrice - entryPrice) / currentPrice
   let pnlPerc = 0n;
   if (hasPosition && currentPriceE6 > 0n && entryPriceE6 > 0n) {
     const priceDelta = currentPriceE6 - entryPriceE6;
@@ -66,12 +59,11 @@ export const PositionPanel: FC = () => {
 
   const pnlColor =
     pnlPerc === 0n
-      ? "text-gray-400"
+      ? "text-[#71717a]"
       : pnlPerc > 0n
-        ? "text-emerald-600"
-        : "text-red-600";
+        ? "text-emerald-400"
+        : "text-red-400";
 
-  // Margin health: capital / |position| as percentage (position-based, matches on-chain)
   let marginHealthStr = "N/A";
   if (hasPosition && absPosition > 0n) {
     const healthPct = Number((account.capital * 100n) / absPosition);
@@ -94,76 +86,75 @@ export const PositionPanel: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+    <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
         Position
       </h3>
 
       {!hasPosition ? (
-        <p className="text-sm text-gray-500">No open position</p>
+        <p className="text-sm text-[#71717a]">No open position</p>
       ) : (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Direction</span>
+            <span className="text-xs text-[#71717a]">Direction</span>
             <span
               className={`text-sm font-medium ${
-                isLong ? "text-emerald-600" : "text-red-600"
+                isLong ? "text-emerald-400" : "text-red-400"
               }`}
             >
               {isLong ? "LONG" : "SHORT"}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Size</span>
-            <span className="text-sm text-gray-900">
+            <span className="text-xs text-[#71717a]">Size</span>
+            <span className="text-sm text-[#e4e4e7]">
               {formatTokenAmount(absPosition)} {symbol}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Entry Price</span>
-            <span className="text-sm text-gray-900">
+            <span className="text-xs text-[#71717a]">Entry Price</span>
+            <span className="text-sm text-[#e4e4e7]">
               {formatUsd(entryPriceE6)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Current Price</span>
-            <span className="text-sm text-gray-900">
+            <span className="text-xs text-[#71717a]">Current Price</span>
+            <span className="text-sm text-[#e4e4e7]">
               {formatUsd(currentPriceE6)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Unrealized PnL</span>
+            <span className="text-xs text-[#71717a]">Unrealized PnL</span>
             <span className={`text-sm font-medium ${pnlColor}`}>
               {pnlPerc > 0n ? "+" : pnlPerc < 0n ? "-" : ""}
               {formatTokenAmount(abs(pnlPerc))} {symbol}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Margin</span>
-            <span className="text-sm text-gray-400">{marginHealthStr}</span>
+            <span className="text-xs text-[#71717a]">Margin</span>
+            <span className="text-sm text-[#71717a]">{marginHealthStr}</span>
           </div>
 
-          {/* Close position button */}
           <button
             onClick={handleClose}
             disabled={closeLoading}
-            className="mt-2 w-full rounded-lg border border-gray-300 bg-gray-50 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 w-full rounded-lg border border-[#1e1e2e] bg-[#1a1a2e] py-2.5 text-sm font-medium text-[#e4e4e7] transition-colors hover:bg-[#1e1e2e] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {closeLoading ? "Closing..." : "Close Position"}
           </button>
 
           {closeError && (
-            <p className="text-xs text-red-600">{closeError}</p>
+            <p className="text-xs text-red-400">{closeError}</p>
           )}
 
           {closeSig && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-[#71717a]">
               Closed:{" "}
               <a
                 href={`https://explorer.solana.com/tx/${closeSig}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-blue-400 hover:underline"
               >
                 {closeSig.slice(0, 16)}...
               </a>

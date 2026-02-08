@@ -26,8 +26,8 @@ export const DepositWithdraw: FC = () => {
 
   if (!connected) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-gray-400">Connect your wallet</p>
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 text-center shadow-sm">
+        <p className="text-[#71717a]">Connect your wallet</p>
       </div>
     );
   }
@@ -35,11 +35,11 @@ export const DepositWithdraw: FC = () => {
   // No account - show init button
   if (!userAccount) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
           Create Account
         </h3>
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-[#71717a]">
           You need an account to trade. This costs a small fee.
         </p>
         <button
@@ -57,16 +57,16 @@ export const DepositWithdraw: FC = () => {
           {initLoading ? "Creating..." : "Create Account"}
         </button>
         {initError && (
-          <p className="mt-2 text-xs text-red-600">{initError}</p>
+          <p className="mt-2 text-xs text-red-400">{initError}</p>
         )}
         {lastSig && (
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-[#71717a]">
             Tx:{" "}
             <a
               href={`https://explorer.solana.com/tx/${lastSig}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+              className="text-blue-400 hover:underline"
             >
               {lastSig.slice(0, 16)}...
             </a>
@@ -103,8 +103,8 @@ export const DepositWithdraw: FC = () => {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-gray-400">
+    <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
+      <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
         Deposit / Withdraw
       </h3>
 
@@ -115,7 +115,7 @@ export const DepositWithdraw: FC = () => {
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
             mode === "deposit"
               ? "bg-emerald-600 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
           }`}
         >
           Deposit
@@ -125,7 +125,7 @@ export const DepositWithdraw: FC = () => {
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
             mode === "withdraw"
               ? "bg-amber-600 text-white"
-              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+              : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
           }`}
         >
           Withdraw
@@ -134,7 +134,7 @@ export const DepositWithdraw: FC = () => {
 
       {/* Amount input */}
       <div className="mb-4">
-        <label className="mb-1 block text-xs text-gray-500">
+        <label className="mb-1 block text-xs text-[#71717a]">
           Amount ({symbol})
         </label>
         <input
@@ -142,7 +142,7 @@ export const DepositWithdraw: FC = () => {
           value={amount}
           onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="2000000"
-          className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-full rounded-lg border border-[#1e1e2e] bg-[#1a1a28] px-3 py-2 text-[#e4e4e7] placeholder-[#52525b] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
 
@@ -159,16 +159,16 @@ export const DepositWithdraw: FC = () => {
             : `Withdraw ${symbol}`}
       </button>
 
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
       {lastSig && (
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-[#71717a]">
           Tx:{" "}
           <a
             href={`https://explorer.solana.com/tx/${lastSig}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
+            className="text-blue-400 hover:underline"
           >
             {lastSig.slice(0, 16)}...
           </a>
