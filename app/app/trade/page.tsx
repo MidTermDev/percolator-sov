@@ -5,6 +5,8 @@ import { MarketStatsCard } from "@/components/trade/MarketStatsCard";
 import { EngineHealthCard } from "@/components/trade/EngineHealthCard";
 import { MarketBookCard } from "@/components/trade/MarketBookCard";
 import { AccountsCard } from "@/components/trade/AccountsCard";
+import { TradeForm } from "@/components/trade/TradeForm";
+import { PositionPanel } from "@/components/trade/PositionPanel";
 
 export default function TradePage() {
   return (
@@ -22,7 +24,13 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* Row 2: Market Book + LP depth | Open Positions / Idle Accounts */}
+      {/* Row 2: Trade Form | Position Panel */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        <TradeForm />
+        <PositionPanel />
+      </div>
+
+      {/* Row 3: Market Book + LP depth | Open Positions / Idle Accounts */}
       <div className="grid gap-4 lg:grid-cols-2">
         <MarketBookCard />
         <AccountsCard />
