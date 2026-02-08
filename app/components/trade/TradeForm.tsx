@@ -48,7 +48,7 @@ export const TradeForm: FC = () => {
     return lp?.idx ?? 0;
   }, [accounts]);
 
-  const initialMarginBps = params?.initialMarginBps ?? 1000n;
+  const initialMarginBps = params?.initialMarginBps ?? 5000n;
   const maxLeverage = Number(10000n / initialMarginBps);
 
   const availableLeverage = LEVERAGE_OPTIONS.filter((l) => l <= maxLeverage);
@@ -67,7 +67,7 @@ export const TradeForm: FC = () => {
 
   const oracleE6 = livePriceE6 ?? mktConfig?.lastEffectivePriceE6 ?? 0n;
   const tradingFeeBps = params?.tradingFeeBps ?? 30n;
-  const maintenanceMarginBps = params?.maintenanceMarginBps ?? 500n;
+  const maintenanceMarginBps = params?.maintenanceMarginBps ?? 2500n;
 
   if (!connected) {
     return (

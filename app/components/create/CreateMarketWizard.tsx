@@ -83,7 +83,7 @@ export const CreateMarketWizard: FC = () => {
   const [invert, setInvert] = useState(false);
 
   const [tradingFeeBps, setTradingFeeBps] = useState(30);
-  const [initialMarginBps, setInitialMarginBps] = useState(1000);
+  const [initialMarginBps, setInitialMarginBps] = useState(5000);
 
   const [lpCollateral, setLpCollateral] = useState("");
   const [insuranceAmount, setInsuranceAmount] = useState("");

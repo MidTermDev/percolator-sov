@@ -49,17 +49,19 @@ export const PositionPanel: FC = () => {
   const absPosition = abs(account.positionSize);
   const onChainPriceE6 = config?.lastEffectivePriceE6 ?? 0n;
   const currentPriceE6 = livePriceE6 ?? onChainPriceE6;
-  const maintBps = params?.maintenanceMarginBps ?? 500n;
+  const maintBps = params?.maintenanceMarginBps ?? 2500n;
 
   // Trade entry price: reservedPnl stores the real price at which the position was opened.
-  // entryPrice is just the last settled oracle price (reset every crank).
-  const tradeEntryPrice = account.reservedPnl > 0n
-    ? account.reservedPnl
-    : account.entryPrice;
+  // entryPrice is just the last settled oracle price (reset every crank) — do NOT use as entry.
+  const hasKnownEntry = account.reservedPnl > 0n;
 
   // Unrealized PnL from trade entry (coin-margined: divides by oracle, not 1e6)
+  // When we have the real trade entry (reservedPnl), compute mark PnL from it.
+  // When we don't (legacy positions), use settled pnl + unsettled mark as best-effort.
   const unrealizedPnl = hasPosition
-    ? computeMarkPnl(account.positionSize, tradeEntryPrice, currentPriceE6)
+    ? hasKnownEntry
+      ? computeMarkPnl(account.positionSize, account.reservedPnl, currentPriceE6)
+      : account.pnl + computeMarkPnl(account.positionSize, account.entryPrice, currentPriceE6)
     : 0n;
 
   const pnlColor =
@@ -132,7 +134,7 @@ export const PositionPanel: FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-[#71717a]">Entry Price</span>
             <span className="text-sm text-[#e4e4e7]">
-              {formatUsd(tradeEntryPrice)}
+              {hasKnownEntry ? formatUsd(account.reservedPnl) : "N/A"}
             </span>
           </div>
           <div className="flex items-center justify-between">

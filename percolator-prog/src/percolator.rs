@@ -1096,6 +1096,11 @@ pub mod ix {
         ResolveMarket,
         /// Withdraw insurance fund balance (admin only, requires RESOLVED flag).
         WithdrawInsurance,
+        /// Admin force-close: unconditionally close any position at oracle price.
+        /// Skips margin checks. Admin only.
+        AdminForceClose { target_idx: u16 },
+        /// Update initial and maintenance margin BPS. Admin only.
+        UpdateRiskParams { initial_margin_bps: u64, maintenance_margin_bps: u64 },
     }
 
     impl Instruction {
@@ -1219,6 +1224,15 @@ pub mod ix {
                 },
                 19 => Ok(Instruction::ResolveMarket),
                 20 => Ok(Instruction::WithdrawInsurance),
+                21 => { // AdminForceClose
+                    let target_idx = read_u16(&mut rest)?;
+                    Ok(Instruction::AdminForceClose { target_idx })
+                },
+                22 => { // UpdateRiskParams
+                    let initial_margin_bps = read_u64(&mut rest)?;
+                    let maintenance_margin_bps = read_u64(&mut rest)?;
+                    Ok(Instruction::UpdateRiskParams { initial_margin_bps, maintenance_margin_bps })
+                },
                 _ => Err(ProgramError::InvalidInstructionData),
             }
         }
@@ -4198,6 +4212,78 @@ pub mod processor {
                     base_amount,
                     &signer_seeds,
                 )?;
+            }
+
+            Instruction::AdminForceClose { target_idx } => {
+                // Admin force-close: unconditionally close any position at oracle price.
+                // Accounts: [admin(signer), slab(writable), clock, oracle]
+                accounts::expect_len(accounts, 4)?;
+                let a_admin = &accounts[0];
+                let a_slab = &accounts[1];
+                let a_oracle = &accounts[3];
+
+                accounts::expect_signer(a_admin)?;
+                accounts::expect_writable(a_slab)?;
+
+                let mut data = state::slab_data_mut(a_slab)?;
+                slab_guard(program_id, a_slab, &data)?;
+                require_initialized(&data)?;
+
+                let header = state::read_header(&data);
+                require_admin(header.admin, a_admin.key)?;
+
+                let mut config = state::read_config(&data);
+                let clock = Clock::from_account_info(&accounts[2])?;
+
+                // Read oracle price (same logic as LiquidateAtOracle)
+                let is_hyperp = oracle::is_hyperp_mode(&config);
+                let price = if is_hyperp {
+                    let idx = config.last_effective_price_e6;
+                    if idx == 0 {
+                        return Err(PercolatorError::OracleInvalid.into());
+                    }
+                    idx
+                } else {
+                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, &accounts[4..])?
+                };
+                state::write_config(&mut data, &config);
+
+                let engine = zc::engine_mut(&mut data)?;
+                check_idx(engine, target_idx)?;
+
+                engine.admin_force_close(target_idx, clock.slot, price).map_err(map_risk_error)?;
+            }
+
+            Instruction::UpdateRiskParams { initial_margin_bps, maintenance_margin_bps } => {
+                // Update margin parameters. Admin only.
+                // Accounts: [admin(signer), slab(writable)]
+                accounts::expect_len(accounts, 2)?;
+                let a_admin = &accounts[0];
+                let a_slab = &accounts[1];
+
+                accounts::expect_signer(a_admin)?;
+                accounts::expect_writable(a_slab)?;
+
+                let mut data = state::slab_data_mut(a_slab)?;
+                slab_guard(program_id, a_slab, &data)?;
+                require_initialized(&data)?;
+
+                let header = state::read_header(&data);
+                require_admin(header.admin, a_admin.key)?;
+
+                // Validate: initial >= maintenance, both > 0, both <= 10000
+                if initial_margin_bps == 0 || maintenance_margin_bps == 0 {
+                    return Err(PercolatorError::InvalidConfigParam.into());
+                }
+                if initial_margin_bps > 10_000 || maintenance_margin_bps > 10_000 {
+                    return Err(PercolatorError::InvalidConfigParam.into());
+                }
+                if initial_margin_bps < maintenance_margin_bps {
+                    return Err(PercolatorError::InvalidConfigParam.into());
+                }
+
+                let engine = zc::engine_mut(&mut data)?;
+                engine.set_margin_params(initial_margin_bps, maintenance_margin_bps);
             }
         }
         Ok(())

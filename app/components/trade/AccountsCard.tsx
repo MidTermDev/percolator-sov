@@ -50,15 +50,15 @@ export const AccountsCard: FC = () => {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const oraclePrice = livePriceE6 ?? mktConfig?.lastEffectivePriceE6 ?? 0n;
-  const maintBps = params?.maintenanceMarginBps ?? 500n;
+  const maintBps = params?.maintenanceMarginBps ?? 2500n;
 
   const rows: AccountRow[] = useMemo(() => {
     return accounts.map(({ idx, account }) => {
       const direction: "LONG" | "SHORT" | "IDLE" =
         account.positionSize > 0n ? "LONG" : account.positionSize < 0n ? "SHORT" : "IDLE";
       // reserved_pnl stores the real trade entry price (set when opening from flat).
-      // entry_price is just the last settled oracle price (reset every crank).
-      const tradeEntryPrice = account.reservedPnl > 0n ? account.reservedPnl : account.entryPrice;
+      // entry_price is just the last settled oracle price (reset every crank) — do NOT use as entry.
+      const hasKnownEntry = account.reservedPnl > 0n;
       // Liq price uses the settled reference (entry_price) + current capital,
       // since capital already reflects settled mark losses.
       const liqPrice = computeLiqPrice(account.entryPrice, account.capital, account.positionSize, maintBps);
@@ -75,11 +75,14 @@ export const AccountsCard: FC = () => {
           liqHealthPct = range > 0 ? Math.max(0, Math.min(100, (dist / range) * 100)) : 0;
         }
       }
-      // cost = |positionSize| * tradeEntryPrice / 1e6
+      // cost = |positionSize| * entry / 1e6 (only meaningful when we know the real entry)
       const absPos = account.positionSize < 0n ? -account.positionSize : account.positionSize;
-      const cost = absPos * tradeEntryPrice / 1_000_000n;
-      // Unrealized PnL from trade entry (coin-margined formula)
-      const unrealizedPnl = computeMarkPnl(account.positionSize, tradeEntryPrice, oraclePrice);
+      const cost = hasKnownEntry ? absPos * account.reservedPnl / 1_000_000n : 0n;
+      // PnL: when we have the real trade entry, compute mark PnL from it.
+      // When we don't (legacy positions), use settled pnl + unsettled mark as best-effort.
+      const unrealizedPnl = hasKnownEntry
+        ? computeMarkPnl(account.positionSize, account.reservedPnl, oraclePrice)
+        : account.pnl + computeMarkPnl(account.positionSize, account.entryPrice, oraclePrice);
       const marginPct = computeMarginPct(account.capital, account.positionSize, oraclePrice);
       return {
         idx,
@@ -87,7 +90,7 @@ export const AccountsCard: FC = () => {
         owner: account.owner.toBase58(),
         direction,
         positionSize: account.positionSize,
-        entryPrice: tradeEntryPrice,
+        entryPrice: hasKnownEntry ? account.reservedPnl : 0n,
         liqPrice,
         liqHealthPct,
         cost,

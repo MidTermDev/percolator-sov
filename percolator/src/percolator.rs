@@ -1939,6 +1939,27 @@ impl RiskEngine {
         })
     }
 
+    /// Admin force-close: unconditionally close a position at oracle price.
+    /// Skips margin checks — intended for emergency admin use only.
+    /// Settles mark PnL first, then closes position.
+    pub fn admin_force_close(&mut self, idx: u16, now_slot: u64, oracle_price: u64) -> Result<()> {
+        self.current_slot = now_slot;
+        if self.accounts[idx as usize].position_size.is_zero() {
+            return Ok(());
+        }
+        // Settle funding + mark PnL before closing
+        self.settle_mark_to_oracle_best_effort(idx, oracle_price)?;
+        // Close position at oracle price
+        self.oracle_close_position_core(idx, oracle_price)?;
+        Ok(())
+    }
+
+    /// Update initial and maintenance margin BPS. Admin only.
+    pub fn set_margin_params(&mut self, initial_margin_bps: u64, maintenance_margin_bps: u64) {
+        self.params.initial_margin_bps = initial_margin_bps;
+        self.params.maintenance_margin_bps = maintenance_margin_bps;
+    }
+
     /// Liquidate a single account at oracle price if below maintenance margin.
     ///
     /// Returns Ok(true) if liquidation occurred, Ok(false) if not needed/possible.

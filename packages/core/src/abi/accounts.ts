@@ -235,6 +235,26 @@ export const ACCOUNTS_WITHDRAW_INSURANCE: readonly AccountSpec[] = [
   { name: "vaultPda", signer: false, writable: false },
 ] as const;
 
+/**
+ * AdminForceClose: 4 accounts
+ * Admin unconditionally closes any position at oracle price.
+ */
+export const ACCOUNTS_ADMIN_FORCE_CLOSE: readonly AccountSpec[] = [
+  { name: "admin", signer: true, writable: false },
+  { name: "slab", signer: false, writable: true },
+  { name: "clock", signer: false, writable: false },
+  { name: "oracle", signer: false, writable: false },
+] as const;
+
+/**
+ * UpdateRiskParams: 2 accounts
+ * Admin updates margin BPS parameters.
+ */
+export const ACCOUNTS_UPDATE_RISK_PARAMS: readonly AccountSpec[] = [
+  { name: "admin", signer: true, writable: false },
+  { name: "slab", signer: false, writable: true },
+] as const;
+
 // ============================================================================
 // ACCOUNT META BUILDERS
 // ============================================================================
