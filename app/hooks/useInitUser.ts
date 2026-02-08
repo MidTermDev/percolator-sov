@@ -47,7 +47,7 @@ export function useInitUser() {
         ]);
 
         const ix = buildIx({ programId, keys, data: ixData });
-        const sig = await sendTx({ connection, wallet, instruction: ix });
+        const sig = await sendTx({ connection, wallet, instructions: [ix] });
         return sig;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

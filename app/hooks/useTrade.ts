@@ -61,7 +61,7 @@ export function useTrade() {
         ]);
 
         const ix = buildIx({ programId, keys, data: ixData });
-        const sig = await sendTx({ connection, wallet, instruction: ix, computeUnits: 400_000 });
+        const sig = await sendTx({ connection, wallet, instructions: [ix], computeUnits: 400_000 });
         return sig;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);

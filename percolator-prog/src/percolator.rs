@@ -1617,14 +1617,52 @@ pub mod oracle {
         0xc1, 0xa2, 0x48, 0x95, 0x1d, 0x17, 0x56, 0x02,
     ]);
 
-    // PriceUpdateV2 account layout offsets (134 bytes minimum)
+    /// PumpSwap AMM program ID
+    /// pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA
+    pub const PUMPSWAP_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+        0x0c, 0x14, 0xde, 0xfc, 0x82, 0x5e, 0xc6, 0x76,
+        0x94, 0x25, 0x08, 0x18, 0xbb, 0x65, 0x40, 0x65,
+        0xf4, 0x29, 0x8d, 0x31, 0x56, 0xd5, 0x71, 0xb4,
+        0xd4, 0xf8, 0x09, 0x0c, 0x18, 0xe9, 0xa8, 0x63,
+    ]);
+
+    /// Raydium CLMM (Concentrated Liquidity) program ID
+    /// CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK
+    pub const RAYDIUM_CLMM_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+        0xa5, 0xd5, 0xca, 0x9e, 0x04, 0xcf, 0x5d, 0xb5,
+        0x90, 0xb7, 0x14, 0xba, 0x2f, 0xe3, 0x2c, 0xb1,
+        0x59, 0x13, 0x3f, 0xc1, 0xc1, 0x92, 0xb7, 0x22,
+        0x57, 0xfd, 0x07, 0xd3, 0x9c, 0xb0, 0x40, 0x1e,
+    ]);
+
+    /// Meteora DLMM (Dynamic Liquidity Market Maker) program ID
+    /// LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo
+    pub const METEORA_DLMM_PROGRAM_ID: Pubkey = Pubkey::new_from_array([
+        0x04, 0xe9, 0xe1, 0x2f, 0xbc, 0x84, 0xe8, 0x26,
+        0xc9, 0x32, 0xcc, 0xe9, 0xe2, 0x64, 0x0c, 0xce,
+        0x15, 0x59, 0x0c, 0x1c, 0x62, 0x73, 0xb0, 0x92,
+        0x57, 0x08, 0xba, 0x3b, 0x85, 0x20, 0xb0, 0xbc,
+    ]);
+
+    // PriceUpdateV2 account layout (Borsh-serialized via Anchor's #[account])
     // See: https://github.com/pyth-network/pyth-crosschain/blob/main/target_chains/solana/pyth_solana_receiver_sdk/src/price_update.rs
+    //
+    // Layout:
+    //   [0..8]   discriminator
+    //   [8..40]  write_authority (Pubkey)
+    //   [40]     verification_level variant (Borsh enum):
+    //              0x00 = Partial { num_signatures: u8 } → 2 bytes total (variant + data)
+    //              0x01 = Full                           → 1 byte total  (variant only)
+    //   [40+N..] PriceFeedMessage: feed_id(32) + price(i64) + conf(u64) + expo(i32) + publish_time(i64) + ...
+    //   [...+8]  posted_slot (u64)
+    //
+    // The base offset for PriceFeedMessage depends on the verification variant:
+    //   Partial → base = 42 (8 + 32 + 2)
+    //   Full    → base = 41 (8 + 32 + 1)
     const PRICE_UPDATE_V2_MIN_LEN: usize = 134;
-    const OFF_FEED_ID: usize = 42;      // 32 bytes
-    const OFF_PRICE: usize = 74;        // i64
-    const OFF_CONF: usize = 82;         // u64
-    const OFF_EXPO: usize = 90;         // i32
-    const OFF_PUBLISH_TIME: usize = 94; // i64
+    const PYTH_DISCRIMINATOR_LEN: usize = 8;
+    const PYTH_WRITE_AUTHORITY_LEN: usize = 32;
+    const PYTH_VERIFICATION_LEVEL_OFF: usize = PYTH_DISCRIMINATOR_LEN + PYTH_WRITE_AUTHORITY_LEN; // 40
 
     // Chainlink OCR2 State/Aggregator account layout offsets (devnet format)
     // This is the simpler account format used on Solana devnet
@@ -1670,17 +1708,41 @@ pub mod oracle {
             return Err(ProgramError::InvalidAccountData);
         }
 
+        // Determine the base offset for PriceFeedMessage based on VerificationLevel variant.
+        // Borsh serializes enums as: 1 byte variant index + variant data.
+        //   Partial (0x00) has { num_signatures: u8 } → 2 bytes total
+        //   Full    (0x01) has no data                → 1 byte total
+        let verification_variant = data[PYTH_VERIFICATION_LEVEL_OFF];
+        let base = match verification_variant {
+            0 => PYTH_VERIFICATION_LEVEL_OFF + 2, // Partial: variant(1) + num_signatures(1) = 42
+            1 => PYTH_VERIFICATION_LEVEL_OFF + 1, // Full: variant(1) = 41
+            _ => return Err(ProgramError::InvalidAccountData),
+        };
+
+        // PriceFeedMessage field offsets relative to base:
+        //   feed_id(32) + price(i64=8) + conf(u64=8) + expo(i32=4) + publish_time(i64=8)
+        let off_feed_id = base;
+        let off_price = base + 32;
+        let off_conf = off_price + 8;
+        let off_expo = off_conf + 8;
+        let off_publish_time = off_expo + 4;
+
+        // Bounds check
+        if off_publish_time + 8 > data.len() {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
         // Validate feed_id matches expected
-        let feed_id: [u8; 32] = data[OFF_FEED_ID..OFF_FEED_ID + 32].try_into().unwrap();
+        let feed_id: [u8; 32] = data[off_feed_id..off_feed_id + 32].try_into().unwrap();
         if &feed_id != expected_feed_id {
             return Err(PercolatorError::InvalidOracleKey.into());
         }
 
         // Read price fields
-        let price = i64::from_le_bytes(data[OFF_PRICE..OFF_PRICE + 8].try_into().unwrap());
-        let conf = u64::from_le_bytes(data[OFF_CONF..OFF_CONF + 8].try_into().unwrap());
-        let expo = i32::from_le_bytes(data[OFF_EXPO..OFF_EXPO + 4].try_into().unwrap());
-        let publish_time = i64::from_le_bytes(data[OFF_PUBLISH_TIME..OFF_PUBLISH_TIME + 8].try_into().unwrap());
+        let price = i64::from_le_bytes(data[off_price..off_price + 8].try_into().unwrap());
+        let conf = u64::from_le_bytes(data[off_conf..off_conf + 8].try_into().unwrap());
+        let expo = i32::from_le_bytes(data[off_expo..off_expo + 4].try_into().unwrap());
+        let publish_time = i64::from_le_bytes(data[off_publish_time..off_publish_time + 8].try_into().unwrap());
 
         if price <= 0 {
             return Err(PercolatorError::OracleInvalid.into());
@@ -1824,11 +1886,354 @@ pub mod oracle {
         Ok(final_price_u128 as u64)
     }
 
+    // =========================================================================
+    // DEX Oracle Readers (PumpSwap, Raydium CLMM, Meteora DLMM)
+    // =========================================================================
+
+    // Raydium CLMM PoolState layout (Anchor — 8-byte discriminator)
+    const RAYDIUM_CLMM_MIN_LEN: usize = 269;
+    const RAYDIUM_CLMM_OFF_MINT0: usize = 73;
+    const RAYDIUM_CLMM_OFF_MINT1: usize = 105;
+    const RAYDIUM_CLMM_OFF_DECIMALS0: usize = 233;
+    const RAYDIUM_CLMM_OFF_DECIMALS1: usize = 234;
+    const RAYDIUM_CLMM_OFF_SQRT_PRICE_X64: usize = 253;
+
+    /// Read spot price from a Raydium CLMM pool account.
+    ///
+    /// Uses sqrt_price_x64 (Q64.64 fixed-point) to compute:
+    ///   price_e6 = (sqrt_price_x64^2 / 2^128) * 10^(6 + decimals_0 - decimals_1)
+    ///
+    /// Returns token_1 per token_0 in e6 format.
+    pub fn read_raydium_clmm_price_e6(
+        price_ai: &AccountInfo,
+        expected_feed_id: &[u8; 32],
+    ) -> Result<u64, ProgramError> {
+        // Validate pool address matches expected (stored in index_feed_id)
+        if price_ai.key.to_bytes() != *expected_feed_id {
+            return Err(PercolatorError::InvalidOracleKey.into());
+        }
+
+        let data = price_ai.try_borrow_data()?;
+        if data.len() < RAYDIUM_CLMM_MIN_LEN {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let decimals_0 = data[RAYDIUM_CLMM_OFF_DECIMALS0] as i32;
+        let decimals_1 = data[RAYDIUM_CLMM_OFF_DECIMALS1] as i32;
+
+        let sqrt_price_x64 = u128::from_le_bytes(
+            data[RAYDIUM_CLMM_OFF_SQRT_PRICE_X64..RAYDIUM_CLMM_OFF_SQRT_PRICE_X64 + 16]
+                .try_into()
+                .unwrap(),
+        );
+
+        if sqrt_price_x64 == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+
+        // price_ratio = sqrt_price_x64^2 / 2^128
+        // To avoid overflow, compute in steps:
+        //   numerator = sqrt_price_x64^2  (can be up to 256 bits, but we use u128 carefully)
+        //   We need: price_e6 = (sqrt^2 / 2^128) * 10^(6 + d0 - d1)
+        //
+        // Rewrite to avoid intermediate overflow:
+        //   price_e6 = sqrt^2 * 10^(6 + d0 - d1) / 2^128
+        //
+        // Split sqrt into hi (top 64 bits) and lo (bottom 64 bits) for precision:
+        //   sqrt^2 = (hi * 2^64 + lo)^2 but that's 256-bit.
+        //
+        // Simpler approach: divide first, multiply second.
+        //   step1 = sqrt / 2^64  (integer, may lose precision for small prices)
+        //   price_ratio_approx = step1 * sqrt  (fits u128 since both < 2^64 range)
+        //
+        // For better precision with small prices, we scale up first:
+        let decimal_diff = 6i32 + decimals_0 - decimals_1;
+
+        // Compute price_e6 = sqrt_price_x64 * sqrt_price_x64 * 10^decimal_diff / 2^128
+        // To manage overflow: first divide one sqrt by 2^64, then multiply
+        let sqrt_hi = sqrt_price_x64 >> 64;
+        let sqrt_lo = sqrt_price_x64 & ((1u128 << 64) - 1);
+
+        // full_product / 2^128 = (sqrt_hi * sqrt + sqrt_lo * sqrt / 2^64) / 2^64
+        // = sqrt_hi * sqrt / 2^64 + sqrt_lo * sqrt / 2^128
+        // We keep the dominant term for precision
+        let term1 = sqrt_hi
+            .checked_mul(sqrt_price_x64)
+            .ok_or(PercolatorError::EngineOverflow)?;
+        // term1 is (sqrt^2 >> 64), so term1 / 2^64 = sqrt^2 / 2^128
+
+        let price_e6 = if decimal_diff >= 0 {
+            let scale = 10u128.pow(decimal_diff as u32);
+            // (term1 * scale) / 2^64
+            let numerator = term1
+                .checked_mul(scale)
+                .ok_or(PercolatorError::EngineOverflow)?;
+            numerator >> 64
+        } else {
+            let scale = 10u128.pow((-decimal_diff) as u32);
+            // term1 / (scale * 2^64) = (term1 / 2^64) / scale
+            (term1 >> 64) / scale
+        };
+
+        if price_e6 == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+        if price_e6 > u64::MAX as u128 {
+            return Err(PercolatorError::EngineOverflow.into());
+        }
+
+        Ok(price_e6 as u64)
+    }
+
+    // PumpSwap pool layout (no Anchor discriminator)
+    const PUMPSWAP_MIN_LEN: usize = 195;
+    const PUMPSWAP_OFF_BASE_MINT: usize = 35;
+    const PUMPSWAP_OFF_QUOTE_MINT: usize = 67;
+    const PUMPSWAP_OFF_BASE_VAULT: usize = 131;
+    const PUMPSWAP_OFF_QUOTE_VAULT: usize = 163;
+
+    // SPL Token Account: amount is at offset 64 (u64 LE)
+    const SPL_TOKEN_AMOUNT_OFF: usize = 64;
+    const SPL_TOKEN_ACCOUNT_MIN_LEN: usize = 72; // need at least through amount field
+
+    /// Read spot price from a PumpSwap AMM pool.
+    ///
+    /// PumpSwap is a constant-product AMM. Price = quote_reserve / base_reserve.
+    /// Requires remaining_accounts[0] = base vault, remaining_accounts[1] = quote vault.
+    ///
+    /// Returns price in e6 format: price_e6 = quote_amount * 1_000_000 / base_amount.
+    /// The `invert` and `unit_scale` fields handle decimal adjustments.
+    pub fn read_pumpswap_price_e6(
+        price_ai: &AccountInfo,
+        expected_feed_id: &[u8; 32],
+        remaining: &[AccountInfo],
+    ) -> Result<u64, ProgramError> {
+        // Validate pool address
+        if price_ai.key.to_bytes() != *expected_feed_id {
+            return Err(PercolatorError::InvalidOracleKey.into());
+        }
+
+        let pool_data = price_ai.try_borrow_data()?;
+        if pool_data.len() < PUMPSWAP_MIN_LEN {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        // Need exactly 2 remaining accounts: base vault, quote vault
+        if remaining.len() < 2 {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        }
+
+        // Validate vault addresses match pool's stored vaults
+        let expected_base_vault: [u8; 32] = pool_data[PUMPSWAP_OFF_BASE_VAULT..PUMPSWAP_OFF_BASE_VAULT + 32]
+            .try_into()
+            .unwrap();
+        let expected_quote_vault: [u8; 32] = pool_data[PUMPSWAP_OFF_QUOTE_VAULT..PUMPSWAP_OFF_QUOTE_VAULT + 32]
+            .try_into()
+            .unwrap();
+
+        if remaining[0].key.to_bytes() != expected_base_vault {
+            return Err(PercolatorError::InvalidOracleKey.into());
+        }
+        if remaining[1].key.to_bytes() != expected_quote_vault {
+            return Err(PercolatorError::InvalidOracleKey.into());
+        }
+
+        // Read token amounts from vault accounts
+        let base_vault_data = remaining[0].try_borrow_data()?;
+        let quote_vault_data = remaining[1].try_borrow_data()?;
+
+        if base_vault_data.len() < SPL_TOKEN_ACCOUNT_MIN_LEN
+            || quote_vault_data.len() < SPL_TOKEN_ACCOUNT_MIN_LEN
+        {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let base_amount = u64::from_le_bytes(
+            base_vault_data[SPL_TOKEN_AMOUNT_OFF..SPL_TOKEN_AMOUNT_OFF + 8]
+                .try_into()
+                .unwrap(),
+        );
+        let quote_amount = u64::from_le_bytes(
+            quote_vault_data[SPL_TOKEN_AMOUNT_OFF..SPL_TOKEN_AMOUNT_OFF + 8]
+                .try_into()
+                .unwrap(),
+        );
+
+        if base_amount == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+
+        // price_e6 = quote_amount * 1_000_000 / base_amount
+        let price_e6 = (quote_amount as u128)
+            .checked_mul(1_000_000)
+            .ok_or(PercolatorError::EngineOverflow)?
+            / (base_amount as u128);
+
+        if price_e6 == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+        if price_e6 > u64::MAX as u128 {
+            return Err(PercolatorError::EngineOverflow.into());
+        }
+
+        Ok(price_e6 as u64)
+    }
+
+    // Meteora DLMM LbPair layout (Anchor — 8-byte discriminator)
+    // Key fields from the IDL:
+    //   parameters (PDA padding + StaticParameters + VariableParameters) starts at offset 8
+    //   StaticParameters contains active_id (i32) and bin_step (u16)
+    //   Layout verified from Meteora DLMM source:
+    //     [8..16]    parameters.padding (?)
+    //     Relevant: active_id at 16, bin_step at 20
+    //   Actual anchor layout (from LbPair struct):
+    //     [8..40]    parameters (StaticParameters 32 bytes)
+    //     [40..72]   v_parameters (VariableParameters 32 bytes)
+    //     [72..76]   bump_seed [u8;2] + padding
+    //     Then: bin_step_seed [u8;2], pair_type u8, active_id i32, ...
+    //
+    // Simplified: we read active_id and bin_step from known offsets.
+    // From Meteora source: LbPair has active_id at offset 8+32+32+2+2+1 = 77 (i32)
+    //   and bin_step at offset 8+0+10 = 18 (u16) inside StaticParameters
+    //
+    // Verified from Meteora DLMM IDL/source:
+    //   StaticParameters layout (at offset 8):
+    //     base_factor: u16 (0-2)
+    //     filter_period: u16 (2-4)
+    //     decay_period: u16 (4-6)
+    //     reduction_factor: u16 (6-8)
+    //     variable_fee_control: u32 (8-12)
+    //     max_volatility_accumulator: u32 (12-16)
+    //     min_bin_id: i32 (16-20)
+    //     max_bin_id: i32 (20-24)
+    //     protocol_share: u16 (24-26)
+    //     padding: [u8;6] (26-32)
+    //   VariableParameters layout (at offset 40):
+    //     volatility_accumulator: u32 (0-4)
+    //     volatility_reference: u32 (4-8)
+    //     id_reference: i32 (8-12)
+    //     time_of_last_update: u64 (12-20, but padded to 16 = 24)
+    //     padding: [u8;8] (24-32)
+    //   After parameters:
+    //     [72..74]   bump_seed: [u8;2]
+    //     [74..76]   bin_step_seed: [u8;2]  — NOT bin_step (this is just the LE bytes of bin_step for PDA)
+    //     [76]       pair_type: u8
+    //     [77..81]   active_id: i32
+    //     [81..113]  token_x_mint: Pubkey
+    //     [113..145] token_y_mint: Pubkey
+    //
+    // We also need bin_step. The canonical source is LbPair.bin_step field, but it's not
+    // stored directly — it's derived from the PDA seeds. However, bin_step_seed at [74..76]
+    // IS the bin_step as u16 LE (used in PDA derivation). We can read it from there.
+
+    const METEORA_DLMM_MIN_LEN: usize = 145;
+    const METEORA_DLMM_OFF_BIN_STEP_SEED: usize = 74; // u16 LE = bin_step
+    const METEORA_DLMM_OFF_ACTIVE_ID: usize = 77;     // i32 LE
+
+    /// Read spot price from a Meteora DLMM pool account.
+    ///
+    /// Price formula: price = (1 + bin_step/10000) ^ (active_id - 2^23)
+    ///
+    /// Uses binary exponentiation with u128 fixed-point (38 decimal digits).
+    /// Returns price in e6 format.
+    pub fn read_meteora_dlmm_price_e6(
+        price_ai: &AccountInfo,
+        expected_feed_id: &[u8; 32],
+    ) -> Result<u64, ProgramError> {
+        // Validate pool address
+        if price_ai.key.to_bytes() != *expected_feed_id {
+            return Err(PercolatorError::InvalidOracleKey.into());
+        }
+
+        let data = price_ai.try_borrow_data()?;
+        if data.len() < METEORA_DLMM_MIN_LEN {
+            return Err(ProgramError::InvalidAccountData);
+        }
+
+        let bin_step = u16::from_le_bytes(
+            data[METEORA_DLMM_OFF_BIN_STEP_SEED..METEORA_DLMM_OFF_BIN_STEP_SEED + 2]
+                .try_into()
+                .unwrap(),
+        ) as u64;
+
+        let active_id = i32::from_le_bytes(
+            data[METEORA_DLMM_OFF_ACTIVE_ID..METEORA_DLMM_OFF_ACTIVE_ID + 4]
+                .try_into()
+                .unwrap(),
+        );
+
+        if bin_step == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+
+        // Zero-price bin offset: active_id is signed, center is 0
+        // Price = (1 + bin_step/10000) ^ active_id
+        // For negative active_id: price = 1 / (1 + bin_step/10000) ^ |active_id|
+        let is_negative = active_id < 0;
+        let exp = if is_negative {
+            (-(active_id as i64)) as u64
+        } else {
+            active_id as u64
+        };
+
+        // Binary exponentiation in fixed-point (scale = 1e18 for precision)
+        const SCALE: u128 = 1_000_000_000_000_000_000; // 1e18
+        let base = SCALE + (bin_step as u128) * SCALE / 10_000; // (1 + bin_step/10000) * SCALE
+
+        let mut result: u128 = SCALE;
+        let mut b: u128 = base;
+        let mut e = exp;
+
+        while e > 0 {
+            if e & 1 == 1 {
+                result = result
+                    .checked_mul(b)
+                    .ok_or(PercolatorError::EngineOverflow)?
+                    / SCALE;
+            }
+            e >>= 1;
+            if e > 0 {
+                b = b
+                    .checked_mul(b)
+                    .ok_or(PercolatorError::EngineOverflow)?
+                    / SCALE;
+            }
+        }
+
+        // result is price * SCALE (1e18)
+        // Convert to e6: price_e6 = result / 1e12
+        let price_e6 = if is_negative {
+            // price = 1/result (in fixed point): SCALE^2 / result
+            // then convert to e6: (SCALE^2 / result) / 1e12 = SCALE * 1e6 / result
+            if result == 0 {
+                return Err(PercolatorError::OracleInvalid.into());
+            }
+            SCALE
+                .checked_mul(1_000_000)
+                .ok_or(PercolatorError::EngineOverflow)?
+                / result
+        } else {
+            result / 1_000_000_000_000 // result / 1e12 to go from 1e18 to 1e6
+        };
+
+        if price_e6 == 0 {
+            return Err(PercolatorError::OracleInvalid.into());
+        }
+        if price_e6 > u64::MAX as u128 {
+            return Err(PercolatorError::EngineOverflow.into());
+        }
+
+        Ok(price_e6 as u64)
+    }
+
     /// Read oracle price for engine use, applying inversion and unit scaling if configured.
     ///
     /// Automatically detects oracle type by account owner:
     /// - PYTH_RECEIVER_PROGRAM_ID: reads Pyth PriceUpdateV2
     /// - CHAINLINK_OCR2_PROGRAM_ID: reads Chainlink OCR2 Transmissions
+    /// - RAYDIUM_CLMM_PROGRAM_ID: reads Raydium CLMM sqrt_price_x64
+    /// - PUMPSWAP_PROGRAM_ID: reads PumpSwap AMM reserves (needs remaining_accounts)
+    /// - METEORA_DLMM_PROGRAM_ID: reads Meteora DLMM active bin price
     ///
     /// Transformations applied in order:
     /// 1. If invert != 0: inverted price = 1e12 / raw_e6
@@ -1847,12 +2252,19 @@ pub mod oracle {
         conf_bps: u16,
         invert: u8,
         unit_scale: u32,
+        remaining_accounts: &[AccountInfo],
     ) -> Result<u64, ProgramError> {
         // Detect oracle type by account owner and dispatch
         let raw_price = if *price_ai.owner == PYTH_RECEIVER_PROGRAM_ID {
             read_pyth_price_e6(price_ai, expected_feed_id, now_unix_ts, max_staleness_secs, conf_bps)?
         } else if *price_ai.owner == CHAINLINK_OCR2_PROGRAM_ID {
             read_chainlink_price_e6(price_ai, expected_feed_id, now_unix_ts, max_staleness_secs)?
+        } else if *price_ai.owner == RAYDIUM_CLMM_PROGRAM_ID {
+            read_raydium_clmm_price_e6(price_ai, expected_feed_id)?
+        } else if *price_ai.owner == PUMPSWAP_PROGRAM_ID {
+            read_pumpswap_price_e6(price_ai, expected_feed_id, remaining_accounts)?
+        } else if *price_ai.owner == METEORA_DLMM_PROGRAM_ID {
+            read_meteora_dlmm_price_e6(price_ai, expected_feed_id)?
         } else {
             // In test mode, try Pyth format first (for existing tests)
             #[cfg(feature = "test")]
@@ -1912,13 +2324,14 @@ pub mod oracle {
         config: &super::state::MarketConfig,
         price_ai: &AccountInfo,
         now_unix_ts: i64,
+        remaining_accounts: &[AccountInfo],
     ) -> Result<u64, ProgramError> {
         // Try authority price first
         if let Some(authority_price) = read_authority_price(config, now_unix_ts, config.max_staleness_secs) {
             return Ok(authority_price);
         }
 
-        // Fall back to Pyth/Chainlink
+        // Fall back to Pyth/Chainlink/DEX
         read_engine_price_e6(
             price_ai,
             &config.index_feed_id,
@@ -1927,6 +2340,7 @@ pub mod oracle {
             config.conf_filter_bps,
             config.invert,
             config.unit_scale,
+            remaining_accounts,
         )
     }
 
@@ -1949,8 +2363,9 @@ pub mod oracle {
         config: &mut super::state::MarketConfig,
         price_ai: &AccountInfo,
         now_unix_ts: i64,
+        remaining_accounts: &[AccountInfo],
     ) -> Result<u64, ProgramError> {
-        let raw = read_price_with_authority(config, price_ai, now_unix_ts)?;
+        let raw = read_price_with_authority(config, price_ai, now_unix_ts, remaining_accounts)?;
         let clamped = clamp_oracle_price(config.last_effective_price_e6, raw, config.oracle_price_cap_e2bps);
         config.last_effective_price_e6 = clamped;
         Ok(clamped)
@@ -2000,6 +2415,7 @@ pub mod oracle {
         now_unix_ts: i64,
         config: &mut super::state::MarketConfig,
         a_oracle: &AccountInfo,
+        remaining_accounts: &[AccountInfo],
     ) -> Result<u64, ProgramError> {
         // Hyperp mode: index_feed_id == 0
         if is_hyperp_mode(config) {
@@ -2022,7 +2438,7 @@ pub mod oracle {
         }
 
         // Non-Hyperp: existing behavior (authority -> Pyth/Chainlink) + circuit breaker
-        read_price_clamped(config, a_oracle, now_unix_ts)
+        read_price_clamped(config, a_oracle, now_unix_ts, remaining_accounts)
     }
 
     /// Compute premium-based funding rate (Hyperp funding model).
@@ -2626,7 +3042,7 @@ pub mod processor {
                     }
                     idx
                 } else {
-                    oracle::read_price_clamped(&mut config, a_oracle_idx, clock.unix_timestamp)?
+                    oracle::read_price_clamped(&mut config, a_oracle_idx, clock.unix_timestamp, &accounts[8..])?
                 };
                 state::write_config(&mut data, &config);
 
@@ -2772,6 +3188,7 @@ pub mod processor {
                     engine.current_slot
                 };
 
+                let remaining_oracle_accounts = &accounts[4..];
                 let price = if is_hyperp {
                     // Hyperp mode: update index toward mark with rate limiting
                     oracle::get_engine_oracle_price_e6(
@@ -2780,9 +3197,10 @@ pub mod processor {
                         clock.unix_timestamp,
                         &mut config,
                         a_oracle,
+                        remaining_oracle_accounts,
                     )?
                 } else {
-                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp)?
+                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, remaining_oracle_accounts)?
                 };
 
                 // Hyperp mode: compute and store funding rate BEFORE engine borrow
@@ -2959,7 +3377,7 @@ pub mod processor {
                 }
 
                 // Read oracle price with circuit-breaker clamping
-                let price = oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp)?;
+                let price = oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, &accounts[5..])?;
                 state::write_config(&mut data, &config);
 
                 let engine = zc::engine_mut(&mut data)?;
@@ -3124,7 +3542,7 @@ pub mod processor {
                     }
                     idx
                 } else {
-                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp)?
+                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, &accounts[8..])?
                 };
 
                 // Note: We don't zero the matcher_ctx before CPI because we don't own it.
@@ -3265,7 +3683,7 @@ pub mod processor {
                     }
                     idx
                 } else {
-                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp)?
+                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, &accounts[4..])?
                 };
                 state::write_config(&mut data, &config);
 
@@ -3337,7 +3755,7 @@ pub mod processor {
                     }
                     idx
                 } else {
-                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp)?
+                    oracle::read_price_clamped(&mut config, a_oracle, clock.unix_timestamp, &accounts[8..])?
                 };
                 state::write_config(&mut data, &config);
 

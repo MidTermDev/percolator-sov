@@ -6,6 +6,7 @@ import { useTrade } from "@/hooks/useTrade";
 import { useUserAccount } from "@/hooks/useUserAccount";
 import { useEngineState } from "@/hooks/useEngineState";
 import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { AccountKind } from "@percolator/core";
 
 const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10];
@@ -30,7 +31,9 @@ export const TradeForm: FC = () => {
   const userAccount = useUserAccount();
   const { trade, loading, error } = useTrade();
   const { params } = useEngineState();
-  const { accounts } = useSlabState();
+  const { accounts, config: mktConfig } = useSlabState();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
 
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [marginInput, setMarginInput] = useState("");
@@ -92,7 +95,7 @@ export const TradeForm: FC = () => {
           <p className="font-medium">Position open</p>
           <p className="mt-1 text-xs text-amber-600">
             You have an open {existingPosition > 0n ? "LONG" : "SHORT"} of{" "}
-            {formatPerc(abs(existingPosition))} PERC.
+            {formatPerc(abs(existingPosition))} {symbol}.
             Close your position before opening a new one.
           </p>
         </div>
@@ -150,7 +153,7 @@ export const TradeForm: FC = () => {
       {/* Margin input */}
       <div className="mb-4">
         <div className="mb-1 flex items-center justify-between">
-          <label className="text-xs text-gray-500">Margin (PERC)</label>
+          <label className="text-xs text-gray-500">Margin ({symbol})</label>
           <button
             onClick={() => {
               if (capital > 0n) setMarginInput((capital / 1_000_000n).toString());
@@ -173,7 +176,7 @@ export const TradeForm: FC = () => {
         />
         {exceedsMargin && (
           <p className="mt-1 text-xs text-red-600">
-            Exceeds balance ({formatPerc(capital)} PERC)
+            Exceeds balance ({formatPerc(capital)} {symbol})
           </p>
         )}
       </div>
@@ -204,7 +207,7 @@ export const TradeForm: FC = () => {
           <div className="flex justify-between">
             <span>Position Size</span>
             <span className="font-medium text-gray-900">
-              {formatPerc(positionSize)} PERC
+              {formatPerc(positionSize)} {symbol}
             </span>
           </div>
           <div className="mt-1 flex justify-between">

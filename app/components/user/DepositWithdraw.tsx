@@ -6,6 +6,9 @@ import { useUserAccount } from "@/hooks/useUserAccount";
 import { useDeposit } from "@/hooks/useDeposit";
 import { useWithdraw } from "@/hooks/useWithdraw";
 import { useInitUser } from "@/hooks/useInitUser";
+import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
+import { parseHumanAmount } from "@/lib/parseAmount";
 
 export const DepositWithdraw: FC = () => {
   const { connected } = useWallet();
@@ -13,6 +16,9 @@ export const DepositWithdraw: FC = () => {
   const { deposit, loading: depositLoading, error: depositError } = useDeposit();
   const { withdraw, loading: withdrawLoading, error: withdrawError } = useWithdraw();
   const { initUser, loading: initLoading, error: initError } = useInitUser();
+  const { config: mktConfig } = useSlabState();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
 
   const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
@@ -77,11 +83,8 @@ export const DepositWithdraw: FC = () => {
     if (!amount || !userAccount) return;
 
     try {
-      // Convert human-readable PERC to native units (6 decimals)
-      const parts = amount.split(".");
-      const whole = parts[0] || "0";
-      const frac = (parts[1] || "").padEnd(6, "0").slice(0, 6);
-      const amtNative = BigInt(whole) * 1_000_000n + BigInt(frac);
+      const decimals = tokenMeta?.decimals ?? 6;
+      const amtNative = parseHumanAmount(amount, decimals);
 
       if (amtNative <= 0n) throw new Error("Amount must be greater than 0");
 
@@ -132,7 +135,7 @@ export const DepositWithdraw: FC = () => {
       {/* Amount input */}
       <div className="mb-4">
         <label className="mb-1 block text-xs text-gray-500">
-          Amount (PERC)
+          Amount ({symbol})
         </label>
         <input
           type="text"
@@ -152,8 +155,8 @@ export const DepositWithdraw: FC = () => {
         {loading
           ? "Sending..."
           : mode === "deposit"
-            ? "Deposit PERC"
-            : "Withdraw PERC"}
+            ? `Deposit ${symbol}`
+            : `Withdraw ${symbol}`}
       </button>
 
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}

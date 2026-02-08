@@ -50,21 +50,27 @@ const SlabContext = createContext<SlabState>(defaultState);
 
 export const useSlabState = () => useContext(SlabContext);
 
-const SLAB_ADDRESS = process.env.NEXT_PUBLIC_SLAB_ADDRESS ?? "";
 const POLL_INTERVAL_MS = 3000;
 
-export const SlabProvider: FC<{ children: ReactNode }> = ({ children }) => {
+export const SlabProvider: FC<{ slabAddress: string; children: ReactNode }> = ({
+  slabAddress,
+  children,
+}) => {
   const { connection } = useConnection();
   const [state, setState] = useState<SlabState>(defaultState);
   const wsActive = useRef(false);
 
   useEffect(() => {
-    if (!SLAB_ADDRESS) {
+    // Reset state when address changes
+    setState(defaultState);
+    wsActive.current = false;
+
+    if (!slabAddress) {
       setState((s) => ({ ...s, loading: false, error: "SLAB_ADDRESS not set" }));
       return;
     }
 
-    const slabPk = new PublicKey(SLAB_ADDRESS);
+    const slabPk = new PublicKey(slabAddress);
 
     function parseSlab(data: Uint8Array) {
       try {
@@ -123,7 +129,7 @@ export const SlabProvider: FC<{ children: ReactNode }> = ({ children }) => {
       if (subId !== undefined) connection.removeAccountChangeListener(subId);
       if (timer) clearInterval(timer);
     };
-  }, [connection]);
+  }, [connection, slabAddress]);
 
   return <SlabContext.Provider value={state}>{children}</SlabContext.Provider>;
 };

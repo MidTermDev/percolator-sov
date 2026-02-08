@@ -5,6 +5,7 @@ import { useUserAccount } from "@/hooks/useUserAccount";
 import { useMarketConfig } from "@/hooks/useMarketConfig";
 import { useTrade } from "@/hooks/useTrade";
 import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { AccountKind } from "@percolator/core";
 import { formatTokenAmount, formatUsd } from "@/lib/format";
 import { useLivePrice } from "@/hooks/useLivePrice";
@@ -17,8 +18,10 @@ export const PositionPanel: FC = () => {
   const userAccount = useUserAccount();
   const config = useMarketConfig();
   const { trade, loading: closeLoading, error: closeError } = useTrade();
-  const { accounts } = useSlabState();
+  const { accounts, config: mktConfig } = useSlabState();
   const { priceE6: livePriceE6 } = useLivePrice();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
   const [closeSig, setCloseSig] = useState<string | null>(null);
 
   // Find first LP for close trade
@@ -113,7 +116,7 @@ export const PositionPanel: FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Size</span>
             <span className="text-sm text-gray-900">
-              {formatTokenAmount(absPosition)} PERC
+              {formatTokenAmount(absPosition)} {symbol}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -132,7 +135,7 @@ export const PositionPanel: FC = () => {
             <span className="text-xs text-gray-500">Unrealized PnL</span>
             <span className={`text-sm font-medium ${pnlColor}`}>
               {pnlPerc > 0n ? "+" : pnlPerc < 0n ? "-" : ""}
-              {formatTokenAmount(abs(pnlPerc))} PERC
+              {formatTokenAmount(abs(pnlPerc))} {symbol}
             </span>
           </div>
           <div className="flex items-center justify-between">

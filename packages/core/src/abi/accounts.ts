@@ -240,6 +240,33 @@ export const ACCOUNTS_WITHDRAW_INSURANCE: readonly AccountSpec[] = [
 // ============================================================================
 
 /**
+ * Build KeeperCrank account metas, including optional DEX oracle extra accounts.
+ *
+ * For PumpSwap pools, extraOracleAccounts should contain [baseVault, quoteVault].
+ * For Raydium CLMM and Meteora DLMM, extraOracleAccounts is empty or omitted.
+ */
+export function buildKeeperCrankAccounts(
+  caller: PublicKey,
+  slab: PublicKey,
+  clock: PublicKey,
+  oracle: PublicKey,
+  extraOracleAccounts?: PublicKey[],
+): AccountMeta[] {
+  const metas: AccountMeta[] = buildAccountMetas(ACCOUNTS_KEEPER_CRANK, [
+    caller,
+    slab,
+    clock,
+    oracle,
+  ]);
+  if (extraOracleAccounts) {
+    for (const pk of extraOracleAccounts) {
+      metas.push({ pubkey: pk, isSigner: false, isWritable: false });
+    }
+  }
+  return metas;
+}
+
+/**
  * Build AccountMeta array from spec and provided pubkeys.
  * Keys must be provided in the same order as the spec.
  */

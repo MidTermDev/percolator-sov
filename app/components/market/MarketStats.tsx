@@ -4,14 +4,17 @@ import { FC } from "react";
 import { useEngineState } from "@/hooks/useEngineState";
 import { useMarketConfig } from "@/hooks/useMarketConfig";
 import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { formatTokenAmount, formatUsd, formatBps } from "@/lib/format";
 import { useLivePrice } from "@/hooks/useLivePrice";
 
 export const MarketStats: FC = () => {
   const { engine, params, loading } = useEngineState();
-  const { error } = useSlabState();
+  const { error, config: mktConfig } = useSlabState();
   const config = useMarketConfig();
   const { priceE6: livePriceE6 } = useLivePrice();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
 
   if (loading) {
     return (
@@ -32,16 +35,16 @@ export const MarketStats: FC = () => {
 
   const stats = [
     {
-      label: "PERC Price",
+      label: `${symbol} Price`,
       value: formatUsd(livePriceE6 ?? config.lastEffectivePriceE6),
     },
     {
       label: "Total Open Interest",
-      value: `${formatTokenAmount(engine.totalOpenInterest)} PERC`,
+      value: `${formatTokenAmount(engine.totalOpenInterest)} ${symbol}`,
     },
     {
       label: "Vault Balance",
-      value: `${formatTokenAmount(engine.vault)} PERC`,
+      value: `${formatTokenAmount(engine.vault)} ${symbol}`,
     },
     {
       label: "Trading Fee",

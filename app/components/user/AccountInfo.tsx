@@ -4,13 +4,16 @@ import { FC } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useUserAccount } from "@/hooks/useUserAccount";
 import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { formatTokenAmount } from "@/lib/format";
 import { AccountKind } from "@percolator/core";
 
 export const AccountInfo: FC = () => {
   const { connected, publicKey } = useWallet();
   const userAccount = useUserAccount();
-  const { loading } = useSlabState();
+  const { loading, config: mktConfig } = useSlabState();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
 
   if (!connected) {
     return (
@@ -64,7 +67,7 @@ export const AccountInfo: FC = () => {
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-500">Capital</span>
           <span className="text-sm text-gray-900">
-            {formatTokenAmount(account.capital)} PERC
+            {formatTokenAmount(account.capital)} {symbol}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -86,7 +89,7 @@ export const AccountInfo: FC = () => {
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-500">Equity</span>
           <span className="text-sm font-medium text-gray-900">
-            {formatTokenAmount(equity)} PERC
+            {formatTokenAmount(equity)} {symbol}
           </span>
         </div>
       </div>

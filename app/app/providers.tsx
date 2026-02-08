@@ -7,12 +7,12 @@ if (typeof globalThis.Buffer === "undefined") {
 
 import { FC, ReactNode } from "react";
 import { WalletProvider } from "@/components/providers/WalletProvider";
-import { SlabProvider } from "@/components/providers/SlabProvider";
+import { MarketProvider } from "@/components/providers/MarketProvider";
 
 export const Providers: FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <WalletProvider>
-      <SlabProvider>{children}</SlabProvider>
+      <MarketProvider>{children}</MarketProvider>
     </WalletProvider>
   );
 };

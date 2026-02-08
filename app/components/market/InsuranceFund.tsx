@@ -2,10 +2,15 @@
 
 import { FC } from "react";
 import { useEngineState } from "@/hooks/useEngineState";
+import { useSlabState } from "@/components/providers/SlabProvider";
+import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { formatTokenAmount } from "@/lib/format";
 
 export const InsuranceFund: FC = () => {
   const { insuranceFund, loading } = useEngineState();
+  const { config: mktConfig } = useSlabState();
+  const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
+  const symbol = tokenMeta?.symbol ?? "Token";
 
   if (loading) {
     return (
@@ -29,10 +34,10 @@ export const InsuranceFund: FC = () => {
         Insurance Fund (Locked Forever)
       </h2>
       <p className="text-4xl font-bold text-gray-900">
-        {formatTokenAmount(insuranceFund.balance)} PERC
+        {formatTokenAmount(insuranceFund.balance)} {symbol}
       </p>
       <p className="mt-2 text-sm text-gray-500">
-        Fee Revenue: {formatTokenAmount(insuranceFund.feeRevenue)} PERC
+        Fee Revenue: {formatTokenAmount(insuranceFund.feeRevenue)} {symbol}
       </p>
     </div>
   );

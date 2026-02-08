@@ -30,6 +30,18 @@ export const Header: FC = () => {
               Home
             </Link>
             <Link
+              href="/markets"
+              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+            >
+              Markets
+            </Link>
+            <Link
+              href="/create"
+              className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
+            >
+              Create
+            </Link>
+            <Link
               href="/trade"
               className="text-sm font-medium text-gray-500 transition-colors hover:text-gray-900"
             >

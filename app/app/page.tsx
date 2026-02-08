@@ -25,12 +25,12 @@ export default function Home() {
           >
             Start Trading
           </Link>
-          <a
-            href="#how-it-works"
+          <Link
+            href="/markets"
             className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
           >
-            How It Works
-          </a>
+            Browse Markets
+          </Link>
         </div>
       </div>
 
