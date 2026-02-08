@@ -1,11 +1,21 @@
 import { Connection, PublicKey } from "@solana/web3.js";
-import { getAssociatedTokenAddress, getAccount, Account } from "@solana/spl-token";
+import { getAssociatedTokenAddress, getAccount, Account, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 /**
  * Get the associated token address for an owner and mint.
+ * Optionally accepts a token program ID (defaults to SPL Token).
  */
-export async function getAta(owner: PublicKey, mint: PublicKey): Promise<PublicKey> {
-  return getAssociatedTokenAddress(mint, owner);
+export async function getAta(
+  owner: PublicKey,
+  mint: PublicKey,
+  tokenProgramId?: PublicKey,
+): Promise<PublicKey> {
+  return getAssociatedTokenAddress(
+    mint,
+    owner,
+    false,
+    tokenProgramId ?? TOKEN_PROGRAM_ID,
+  );
 }
 
 /**

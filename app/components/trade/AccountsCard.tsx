@@ -7,6 +7,7 @@ import { useTokenMeta } from "@/hooks/useTokenMeta";
 import { useLivePrice } from "@/hooks/useLivePrice";
 import { formatTokenAmount, formatUsd, formatPnl, shortenAddress } from "@/lib/format";
 import { AccountKind } from "@percolator/core";
+import { computeLiqPrice, computeMarkPnl } from "@/lib/trading";
 
 type SortKey = "idx" | "owner" | "direction" | "position" | "entry" | "liqPrice" | "cost" | "pnl" | "capital" | "margin";
 type SortDir = "asc" | "desc";
@@ -25,32 +26,6 @@ interface AccountRow {
   pnl: bigint;
   capital: bigint;
   marginPct: number;
-}
-
-function computeLiqPrice(
-  entryPrice: bigint,
-  capital: bigint,
-  positionSize: bigint,
-  maintenanceMarginBps: bigint,
-): bigint {
-  if (positionSize === 0n || entryPrice === 0n) return 0n;
-  const absPos = positionSize < 0n ? -positionSize : positionSize;
-  // maintMargin = absPos * price * maintenanceMarginBps / 10000 / 1e6
-  // For longs: liqPrice = entryPrice - (capital * 1e6 / absPos) * (10000 / (10000 + maintBps))
-  // For shorts: liqPrice = entryPrice + (capital * 1e6 / absPos) * (10000 / (10000 + maintBps))
-  // Simplified: liqPrice = entryPrice -/+ (capital * 10000 * 1e6) / (absPos * (10000 + maintBps))
-  const maintBps = Number(maintenanceMarginBps);
-  const capitalPerUnit = Number(capital) * 1e6 / Number(absPos);
-  const adjusted = capitalPerUnit * 10000 / (10000 + maintBps);
-
-  if (positionSize > 0n) {
-    // Long: liquidated when price drops
-    const liq = Number(entryPrice) - adjusted;
-    return liq > 0 ? BigInt(Math.round(liq)) : 0n;
-  } else {
-    // Short: liquidated when price rises
-    return BigInt(Math.round(Number(entryPrice) + adjusted));
-  }
 }
 
 function computeMarginPct(
@@ -81,25 +56,30 @@ export const AccountsCard: FC = () => {
     return accounts.map(({ idx, account }) => {
       const direction: "LONG" | "SHORT" | "IDLE" =
         account.positionSize > 0n ? "LONG" : account.positionSize < 0n ? "SHORT" : "IDLE";
+      // reserved_pnl stores the real trade entry price (set when opening from flat).
+      // entry_price is just the last settled oracle price (reset every crank).
+      const tradeEntryPrice = account.reservedPnl > 0n ? account.reservedPnl : account.entryPrice;
+      // Liq price uses the settled reference (entry_price) + current capital,
+      // since capital already reflects settled mark losses.
       const liqPrice = computeLiqPrice(account.entryPrice, account.capital, account.positionSize, maintBps);
-      // Health: how far current price is from liq as % of entry-to-liq range
+      // Health: how far current price is from liq as % of settled-entry-to-liq range
       let liqHealthPct = 100;
       if (account.positionSize !== 0n && liqPrice > 0n && oraclePrice > 0n) {
         if (account.positionSize > 0n) {
-          // Long: healthy if price >> liqPrice
           const range = Number(account.entryPrice - liqPrice);
           const dist = Number(oraclePrice - liqPrice);
           liqHealthPct = range > 0 ? Math.max(0, Math.min(100, (dist / range) * 100)) : 0;
         } else {
-          // Short: healthy if price << liqPrice
           const range = Number(liqPrice - account.entryPrice);
           const dist = Number(liqPrice - oraclePrice);
           liqHealthPct = range > 0 ? Math.max(0, Math.min(100, (dist / range) * 100)) : 0;
         }
       }
-      // cost = |positionSize| * entryPrice / 1e6
+      // cost = |positionSize| * tradeEntryPrice / 1e6
       const absPos = account.positionSize < 0n ? -account.positionSize : account.positionSize;
-      const cost = absPos * account.entryPrice / 1_000_000n;
+      const cost = absPos * tradeEntryPrice / 1_000_000n;
+      // Unrealized PnL from trade entry (coin-margined formula)
+      const unrealizedPnl = computeMarkPnl(account.positionSize, tradeEntryPrice, oraclePrice);
       const marginPct = computeMarginPct(account.capital, account.positionSize, oraclePrice);
       return {
         idx,
@@ -107,11 +87,11 @@ export const AccountsCard: FC = () => {
         owner: account.owner.toBase58(),
         direction,
         positionSize: account.positionSize,
-        entryPrice: account.entryPrice,
+        entryPrice: tradeEntryPrice,
         liqPrice,
         liqHealthPct,
         cost,
-        pnl: account.pnl,
+        pnl: unrealizedPnl,
         capital: account.capital,
         marginPct,
       };

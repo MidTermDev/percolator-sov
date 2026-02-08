@@ -296,3 +296,16 @@ export const WELL_KNOWN = {
   rent: SYSVAR_RENT_PUBKEY,
   systemProgram: SystemProgram.programId,
 } as const;
+
+/**
+ * Create well-known keys with a custom token program ID.
+ * Falls back to SPL Token if none provided.
+ */
+export function makeWellKnown(tokenProgramId?: PublicKey) {
+  return {
+    tokenProgram: tokenProgramId ?? TOKEN_PROGRAM_ID,
+    clock: SYSVAR_CLOCK_PUBKEY,
+    rent: SYSVAR_RENT_PUBKEY,
+    systemProgram: SystemProgram.programId,
+  };
+}

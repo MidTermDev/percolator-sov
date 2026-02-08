@@ -7,7 +7,9 @@ import { useUserAccount } from "@/hooks/useUserAccount";
 import { useEngineState } from "@/hooks/useEngineState";
 import { useSlabState } from "@/components/providers/SlabProvider";
 import { useTokenMeta } from "@/hooks/useTokenMeta";
+import { useLivePrice } from "@/hooks/useLivePrice";
 import { AccountKind } from "@percolator/core";
+import { PreTradeSummary } from "./PreTradeSummary";
 
 const LEVERAGE_OPTIONS = [1, 2, 3, 5, 10];
 
@@ -34,6 +36,7 @@ export const TradeForm: FC = () => {
   const { accounts, config: mktConfig } = useSlabState();
   const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
   const symbol = tokenMeta?.symbol ?? "Token";
+  const { priceE6: livePriceE6 } = useLivePrice();
 
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [marginInput, setMarginInput] = useState("");
@@ -62,6 +65,10 @@ export const TradeForm: FC = () => {
 
   const exceedsMargin = marginNative > 0n && marginNative > capital;
 
+  const oracleE6 = livePriceE6 ?? mktConfig?.lastEffectivePriceE6 ?? 0n;
+  const tradingFeeBps = params?.tradingFeeBps ?? 30n;
+  const maintenanceMarginBps = params?.maintenanceMarginBps ?? 500n;
+
   if (!connected) {
     return (
       <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 text-center shadow-sm">
@@ -76,24 +83,6 @@ export const TradeForm: FC = () => {
         <p className="text-[#71717a]">
           No account found. Go to Dashboard to create one.
         </p>
-      </div>
-    );
-  }
-
-  if (hasPosition) {
-    return (
-      <div className="rounded-xl border border-[#1e1e2e] bg-[#12121a] p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-[#71717a]">
-          Trade
-        </h3>
-        <div className="rounded-lg border border-amber-900/50 bg-amber-900/20 p-4 text-sm text-amber-300">
-          <p className="font-medium">Position open</p>
-          <p className="mt-1 text-xs text-amber-400/70">
-            You have an open {existingPosition > 0n ? "LONG" : "SHORT"} of{" "}
-            {formatPerc(abs(existingPosition))} {symbol}.
-            Close your position before opening a new one.
-          </p>
-        </div>
       </div>
     );
   }
@@ -121,25 +110,38 @@ export const TradeForm: FC = () => {
         Trade
       </h3>
 
+      {hasPosition && (
+        <div className="mb-4 rounded-lg border border-amber-900/50 bg-amber-900/20 p-3 text-sm text-amber-300">
+          <p className="font-medium">Position open</p>
+          <p className="mt-1 text-xs text-amber-400/70">
+            You have an open {existingPosition > 0n ? "LONG" : "SHORT"} of{" "}
+            {formatPerc(abs(existingPosition))} {symbol}.
+            Close your position before opening a new one.
+          </p>
+        </div>
+      )}
+
       {/* Direction toggle */}
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setDirection("long")}
+          disabled={hasPosition}
           className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "long"
               ? "bg-emerald-600 text-white"
               : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
-          }`}
+          } disabled:cursor-not-allowed disabled:opacity-50`}
         >
           Long
         </button>
         <button
           onClick={() => setDirection("short")}
+          disabled={hasPosition}
           className={`flex-1 rounded-lg py-2.5 text-sm font-medium transition-colors ${
             direction === "short"
               ? "bg-red-600 text-white"
               : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
-          }`}
+          } disabled:cursor-not-allowed disabled:opacity-50`}
         >
           Short
         </button>
@@ -153,7 +155,8 @@ export const TradeForm: FC = () => {
             onClick={() => {
               if (capital > 0n) setMarginInput((capital / 1_000_000n).toString());
             }}
-            className="text-xs text-blue-400 hover:text-blue-300"
+            disabled={hasPosition}
+            className="text-xs text-blue-400 hover:text-blue-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Balance: {formatPerc(capital)}
           </button>
@@ -163,7 +166,8 @@ export const TradeForm: FC = () => {
           value={marginInput}
           onChange={(e) => setMarginInput(e.target.value.replace(/[^0-9.]/g, ""))}
           placeholder="100000"
-          className={`w-full rounded-lg border px-3 py-2.5 text-[#e4e4e7] placeholder-[#52525b] focus:outline-none focus:ring-1 ${
+          disabled={hasPosition}
+          className={`w-full rounded-lg border px-3 py-2.5 text-[#e4e4e7] placeholder-[#52525b] focus:outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-50 ${
             exceedsMargin
               ? "border-red-500/50 bg-red-900/20 focus:border-red-500 focus:ring-red-500"
               : "border-[#1e1e2e] bg-[#1a1a28] focus:border-blue-500 focus:ring-blue-500"
@@ -184,11 +188,12 @@ export const TradeForm: FC = () => {
             <button
               key={l}
               onClick={() => setLeverage(l)}
+              disabled={hasPosition}
               className={`flex-1 rounded-lg py-2 text-xs font-medium transition-colors ${
                 leverage === l
                   ? "bg-blue-600 text-white"
                   : "bg-[#1a1a2e] text-[#71717a] hover:bg-[#1e1e2e]"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {l}x
             </button>
@@ -196,32 +201,24 @@ export const TradeForm: FC = () => {
         </div>
       </div>
 
-      {/* Position summary */}
-      {marginInput && marginNative > 0n && !exceedsMargin && (
-        <div className="mb-4 rounded-lg bg-[#1a1a28] p-3 text-xs text-[#71717a]">
-          <div className="flex justify-between">
-            <span>Position Size</span>
-            <span className="font-medium text-[#e4e4e7]">
-              {formatPerc(positionSize)} {symbol}
-            </span>
-          </div>
-          <div className="mt-1 flex justify-between">
-            <span>Direction</span>
-            <span
-              className={`font-medium ${
-                direction === "long" ? "text-emerald-400" : "text-red-400"
-              }`}
-            >
-              {direction === "long" ? "Long" : "Short"} {leverage}x
-            </span>
-          </div>
-        </div>
+      {/* Pre-trade summary */}
+      {marginInput && marginNative > 0n && !exceedsMargin && !hasPosition && (
+        <PreTradeSummary
+          oracleE6={oracleE6}
+          margin={marginNative}
+          positionSize={positionSize}
+          direction={direction}
+          leverage={leverage}
+          tradingFeeBps={tradingFeeBps}
+          maintenanceMarginBps={maintenanceMarginBps}
+          symbol={symbol}
+        />
       )}
 
       {/* Submit */}
       <button
         onClick={handleTrade}
-        disabled={loading || !marginInput || positionSize <= 0n || exceedsMargin}
+        disabled={loading || !marginInput || positionSize <= 0n || exceedsMargin || hasPosition}
         className={`w-full rounded-lg py-3 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
           direction === "long"
             ? "bg-emerald-600 hover:bg-emerald-700"

@@ -6,9 +6,11 @@ import { useMarketConfig } from "@/hooks/useMarketConfig";
 import { useTrade } from "@/hooks/useTrade";
 import { useSlabState } from "@/components/providers/SlabProvider";
 import { useTokenMeta } from "@/hooks/useTokenMeta";
+import { useEngineState } from "@/hooks/useEngineState";
 import { AccountKind } from "@percolator/core";
-import { formatTokenAmount, formatUsd } from "@/lib/format";
+import { formatTokenAmount, formatUsd, formatPercent, formatFundingRate } from "@/lib/format";
 import { useLivePrice } from "@/hooks/useLivePrice";
+import { computeLiqPrice, computeMarkPnl, computePnlPercent } from "@/lib/trading";
 
 function abs(n: bigint): bigint {
   return n < 0n ? -n : n;
@@ -20,6 +22,7 @@ export const PositionPanel: FC = () => {
   const { trade, loading: closeLoading, error: closeError } = useTrade();
   const { accounts, config: mktConfig } = useSlabState();
   const { priceE6: livePriceE6 } = useLivePrice();
+  const { params, fundingRate } = useEngineState();
   const tokenMeta = useTokenMeta(mktConfig?.collateralMint ?? null);
   const symbol = tokenMeta?.symbol ?? "Token";
   const [closeSig, setCloseSig] = useState<string | null>(null);
@@ -46,23 +49,38 @@ export const PositionPanel: FC = () => {
   const absPosition = abs(account.positionSize);
   const onChainPriceE6 = config?.lastEffectivePriceE6 ?? 0n;
   const currentPriceE6 = livePriceE6 ?? onChainPriceE6;
+  const maintBps = params?.maintenanceMarginBps ?? 500n;
 
-  const entryPriceE6 = account.reservedPnl > 0n
+  // Trade entry price: reservedPnl stores the real price at which the position was opened.
+  // entryPrice is just the last settled oracle price (reset every crank).
+  const tradeEntryPrice = account.reservedPnl > 0n
     ? account.reservedPnl
     : account.entryPrice;
 
-  let pnlPerc = 0n;
-  if (hasPosition && currentPriceE6 > 0n && entryPriceE6 > 0n) {
-    const priceDelta = currentPriceE6 - entryPriceE6;
-    pnlPerc = (account.positionSize * priceDelta) / currentPriceE6;
-  }
+  // Unrealized PnL from trade entry (coin-margined: divides by oracle, not 1e6)
+  const unrealizedPnl = hasPosition
+    ? computeMarkPnl(account.positionSize, tradeEntryPrice, currentPriceE6)
+    : 0n;
 
   const pnlColor =
-    pnlPerc === 0n
+    unrealizedPnl === 0n
       ? "text-[#71717a]"
-      : pnlPerc > 0n
+      : unrealizedPnl > 0n
         ? "text-emerald-400"
         : "text-red-400";
+
+  // PnL % relative to the original capital (trade entry capital = current capital + settled losses absorbed)
+  // For a more intuitive %, we use the trade entry price cost basis:
+  // costBasis = absPos * tradeEntryPrice / oracle (roughly = capital deposited for this trade)
+  const pnlPct = hasPosition
+    ? computePnlPercent(unrealizedPnl, account.capital)
+    : 0;
+
+  // Liq price uses the SETTLED reference (entry_price) + current capital,
+  // since capital has already been adjusted by settled mark PnL.
+  const liqPrice = hasPosition
+    ? computeLiqPrice(account.entryPrice, account.capital, account.positionSize, maintBps)
+    : 0n;
 
   let marginHealthStr = "N/A";
   if (hasPosition && absPosition > 0n) {
@@ -114,7 +132,7 @@ export const PositionPanel: FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-[#71717a]">Entry Price</span>
             <span className="text-sm text-[#e4e4e7]">
-              {formatUsd(entryPriceE6)}
+              {formatUsd(tradeEntryPrice)}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -126,8 +144,26 @@ export const PositionPanel: FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-xs text-[#71717a]">Unrealized PnL</span>
             <span className={`text-sm font-medium ${pnlColor}`}>
-              {pnlPerc > 0n ? "+" : pnlPerc < 0n ? "-" : ""}
-              {formatTokenAmount(abs(pnlPerc))} {symbol}
+              {unrealizedPnl > 0n ? "+" : unrealizedPnl < 0n ? "-" : ""}
+              {formatTokenAmount(abs(unrealizedPnl))} {symbol}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[#71717a]">PnL %</span>
+            <span className={`text-sm font-medium ${pnlPct > 0 ? "text-emerald-400" : pnlPct < 0 ? "text-red-400" : "text-[#71717a]"}`}>
+              {formatPercent(pnlPct)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[#71717a]">Liq Price</span>
+            <span className="text-sm font-medium text-red-400">
+              {liqPrice > 0n ? formatUsd(liqPrice) : "N/A"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-[#71717a]">Funding Rate</span>
+            <span className="text-sm text-[#e4e4e7]">
+              {fundingRate !== null ? formatFundingRate(fundingRate) + "/yr" : "N/A"}
             </span>
           </div>
           <div className="flex items-center justify-between">

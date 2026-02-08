@@ -11,6 +11,8 @@ import { usePythFeedSearch } from "@/hooks/usePythFeedSearch";
 import { useDexPoolSearch, type DexPoolResult } from "@/hooks/useDexPoolSearch";
 import { parseHumanAmount, formatHumanAmount } from "@/lib/parseAmount";
 
+const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
 function isValidBase58Pubkey(s: string): boolean {
   try {
     new PublicKey(s);
@@ -90,6 +92,10 @@ export const CreateMarketWizard: FC = () => {
 
   const [openStep, setOpenStep] = useState(1);
 
+  // Token2022 detection
+  const [isToken2022Mint, setIsToken2022Mint] = useState(false);
+  const [token2022Loading, setToken2022Loading] = useState(false);
+
   const mintValid = isValidBase58Pubkey(mint);
   const mintPk = useMemo(() => (mintValid ? new PublicKey(mint) : null), [mint, mintValid]);
   const tokenMeta = useTokenMeta(mintPk);
@@ -105,7 +111,7 @@ export const CreateMarketWizard: FC = () => {
   const dexPoolValid = oracleMode === "dex" && isValidBase58Pubkey(dexPoolAddress);
   const feedValid = oracleMode === "dex" || isValidHex64(feedId);
   const dexValid = oracleMode !== "dex" || dexPoolValid;
-  const step1Valid = mintValid && feedValid && dexValid;
+  const step1Valid = mintValid && feedValid && dexValid && !isToken2022Mint;
 
   const maintenanceMarginBps = Math.floor(initialMarginBps / 2);
   const maxLeverage = Math.floor(10000 / initialMarginBps);
@@ -126,6 +132,31 @@ export const CreateMarketWizard: FC = () => {
   const combinedNative = lpNative + insNative;
 
   const balanceWarning = tokenBalance !== null && combinedNative > 0n && combinedNative > (tokenBalance * 80n) / 100n;
+
+  // Detect Token2022 mints
+  useEffect(() => {
+    setIsToken2022Mint(false);
+    if (!mintValid) return;
+
+    let cancelled = false;
+    setToken2022Loading(true);
+
+    (async () => {
+      try {
+        const pk = new PublicKey(mint);
+        const info = await connection.getAccountInfo(pk);
+        if (!cancelled && info) {
+          setIsToken2022Mint(info.owner.equals(TOKEN_2022_PROGRAM_ID));
+        }
+      } catch {
+        // keep false
+      } finally {
+        if (!cancelled) setToken2022Loading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [connection, mint, mintValid]);
 
   useEffect(() => {
     if (!publicKey || !mintValid) {
@@ -267,6 +298,16 @@ export const CreateMarketWizard: FC = () => {
                   <p className="text-sm font-medium text-[#e4e4e7]">{tokenMeta.name} ({tokenMeta.symbol})</p>
                   <p className="text-xs text-[#71717a]">{tokenMeta.decimals} decimals</p>
                 </div>
+              </div>
+            )}
+            {token2022Loading && mintValid && <p className="mt-1 text-xs text-[#52525b]">Checking token program...</p>}
+            {isToken2022Mint && (
+              <div className="mt-2 rounded-lg border border-red-500/50 bg-red-900/20 p-3">
+                <p className="text-sm font-medium text-red-400">Token2022 mint detected</p>
+                <p className="mt-1 text-xs text-red-400/70">
+                  Token2022 (Token Extensions) mints are not yet supported by the on-chain program.
+                  Market creation is disabled for this mint.
+                </p>
               </div>
             )}
             {balanceLoading && mintValid && <p className="mt-1 text-xs text-[#52525b]">Loading balance...</p>}
@@ -422,8 +463,9 @@ export const CreateMarketWizard: FC = () => {
             <p className="text-xs text-[#71717a]">Estimated SOL cost</p>
             <p className="text-sm font-medium text-[#e4e4e7]">~6.9 SOL (slab rent + tx fees)</p>
           </div>
+          {isToken2022Mint && <p className="text-sm text-red-400">Token2022 mints are not supported. Choose a different token.</p>}
           {!publicKey && <p className="text-sm text-amber-400">Connect your wallet to create a market.</p>}
-          <button onClick={handleCreate} disabled={!allValid || !publicKey} className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-[#1e1e2e] disabled:text-[#52525b]">Create Market</button>
+          <button onClick={handleCreate} disabled={!allValid || !publicKey || isToken2022Mint} className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-[#1e1e2e] disabled:text-[#52525b]">Create Market</button>
         </div>
       </StepSection>
     </div>

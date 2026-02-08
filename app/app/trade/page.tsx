@@ -24,10 +24,14 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* Row 2: Trade Form | Position Panel */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        <TradeForm />
-        <PositionPanel />
+      {/* Row 2: TradeForm (1/3) | PositionPanel (2/3) */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-1">
+          <TradeForm />
+        </div>
+        <div className="lg:col-span-2">
+          <PositionPanel />
+        </div>
       </div>
 
       {/* Row 3: Market Book + LP depth | Open Positions / Idle Accounts */}

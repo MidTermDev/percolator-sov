@@ -58,3 +58,19 @@ export function formatPnl(raw: bigint, decimals: number = 6): string {
 export function formatMarginPct(marginBps: number): string {
   return `${(marginBps / 100).toFixed(1)}%`;
 }
+
+/** Format a number as a signed percentage string e.g. "+12.34%" or "-5.67%" */
+export function formatPercent(value: number, decimals: number = 2): string {
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(decimals)}%`;
+}
+
+/** Format funding rate from per-slot bps to annualized % string.
+ * ~2.5 slots/sec on Solana mainnet.
+ */
+export function formatFundingRate(bpsPerSlot: bigint): string {
+  const slotsPerYear = 2.5 * 60 * 60 * 24 * 365;
+  const annualized = (Number(bpsPerSlot) * slotsPerYear) / 100;
+  const sign = annualized > 0 ? "+" : "";
+  return `${sign}${annualized.toFixed(2)}%`;
+}
